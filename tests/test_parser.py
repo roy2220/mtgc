@@ -39,9 +39,7 @@ class TestParser(unittest.TestCase):
 
             scanner = Scanner(
                 StringIO(
-                    f"""
-import "{fp.name}"
-"""
+                    f'import "{fp.name}"\n'
                     + """\
 component DemoInfo as "just demo"
 {

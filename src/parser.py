@@ -500,7 +500,7 @@ class Parser:
             if op.startswith("v_"):
                 key_index = self._key_2_index.get(value)
                 if key_index is None:
-                    raise UnknownKeyError(source_location, key)
+                    raise UnknownKeyError(source_location, value)
                 underlying_values.append(str(key_index))
             else:
                 underlying_values.append(value)
