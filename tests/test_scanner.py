@@ -58,1267 +58,1810 @@ component NormalPostbackInfo as "回传信息规整"
                     type=TokenType.COMPONENT_KEYWORD,
                     data="component",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=1
+                        file_name="<unnamed>",
+                        file_offset=0,
+                        line_number=1,
+                        column_number=1,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=9,
+                        line_number=1,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.IDENTIFIER,
                     data="NormalPostbackInfo",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=11
+                        file_name="<unnamed>",
+                        file_offset=10,
+                        line_number=1,
+                        column_number=11,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=29
+                        file_name="<unnamed>",
+                        file_offset=28,
+                        line_number=1,
+                        column_number=29,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=30
+                        file_name="<unnamed>",
+                        file_offset=29,
+                        line_number=1,
+                        column_number=30,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=32
+                        file_name="<unnamed>",
+                        file_offset=31,
+                        line_number=1,
+                        column_number=32,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"回传信息规整"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=33
+                        file_name="<unnamed>",
+                        file_offset=32,
+                        line_number=1,
+                        column_number=33,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=1, column_number=41
+                        file_name="<unnamed>",
+                        file_offset=40,
+                        line_number=1,
+                        column_number=41,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=2, column_number=1
+                        file_name="<unnamed>",
+                        file_offset=41,
+                        line_number=2,
+                        column_number=1,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=2, column_number=2
+                        file_name="<unnamed>",
+                        file_offset=42,
+                        line_number=2,
+                        column_number=2,
                     ),
                 ),
                 Token(
                     type=TokenType.UNIT_KEYWORD,
                     data="unit",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=47,
+                        line_number=3,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=51,
+                        line_number=3,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.IDENTIFIER,
                     data="MmpNameInfo",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=52,
+                        line_number=3,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=21
+                        file_name="<unnamed>",
+                        file_offset=63,
+                        line_number=3,
+                        column_number=21,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=22
+                        file_name="<unnamed>",
+                        file_offset=64,
+                        line_number=3,
+                        column_number=22,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=24
+                        file_name="<unnamed>",
+                        file_offset=66,
+                        line_number=3,
+                        column_number=24,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"MMP名信息"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=25
+                        file_name="<unnamed>",
+                        file_offset=67,
+                        line_number=3,
+                        column_number=25,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=3, column_number=33
+                        file_name="<unnamed>",
+                        file_offset=75,
+                        line_number=3,
+                        column_number=33,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=4, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=80,
+                        line_number=4,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=4, column_number=6
+                        file_name="<unnamed>",
+                        file_offset=81,
+                        line_number=4,
+                        column_number=6,
                     ),
                 ),
                 Token(
                     type=TokenType.SWITCH_KEYWORD,
                     data="switch",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=90,
+                        line_number=5,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=15
+                        file_name="<unnamed>",
+                        file_offset=96,
+                        line_number=5,
+                        column_number=15,
                     ),
                 ),
                 Token(
                     type=TokenType.GET_KEYWORD,
                     data="get",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=97,
+                        line_number=5,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=19
+                        file_name="<unnamed>",
+                        file_offset=100,
+                        line_number=5,
+                        column_number=19,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"RawPostbackInfo_ThreeType"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=20
+                        file_name="<unnamed>",
+                        file_offset=101,
+                        line_number=5,
+                        column_number=20,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=47
+                        file_name="<unnamed>",
+                        file_offset=128,
+                        line_number=5,
+                        column_number=47,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=48
+                        file_name="<unnamed>",
+                        file_offset=129,
+                        line_number=5,
+                        column_number=48,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=49
+                        file_name="<unnamed>",
+                        file_offset=130,
+                        line_number=5,
+                        column_number=49,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=5, column_number=50
+                        file_name="<unnamed>",
+                        file_offset=131,
+                        line_number=5,
+                        column_number=50,
                     ),
                 ),
                 Token(
                     type=TokenType.CASE_KEYWORD,
                     data="case",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=140,
+                        line_number=6,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=13
+                        file_name="<unnamed>",
+                        file_offset=144,
+                        line_number=6,
+                        column_number=13,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"kochava"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=14
+                        file_name="<unnamed>",
+                        file_offset=145,
+                        line_number=6,
+                        column_number=14,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=23
+                        file_name="<unnamed>",
+                        file_offset=154,
+                        line_number=6,
+                        column_number=23,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=24
+                        file_name="<unnamed>",
+                        file_offset=155,
+                        line_number=6,
+                        column_number=24,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"min_kochava"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=25
+                        file_name="<unnamed>",
+                        file_offset=156,
+                        line_number=6,
+                        column_number=25,
                     ),
                 ),
                 Token(
                     type=TokenType.COLON,
                     data=":",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=38
+                        file_name="<unnamed>",
+                        file_offset=169,
+                        line_number=6,
+                        column_number=38,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n            ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=6, column_number=39
+                        file_name="<unnamed>",
+                        file_offset=170,
+                        line_number=6,
+                        column_number=39,
                     ),
                 ),
                 Token(
                     type=TokenType.RETURN_KEYWORD,
                     data="return",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=13
+                        file_name="<unnamed>",
+                        file_offset=183,
+                        line_number=7,
+                        column_number=13,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=19
+                        file_name="<unnamed>",
+                        file_offset=189,
+                        line_number=7,
+                        column_number=19,
                     ),
                 ),
                 Token(
                     type=TokenType.TRANSFORM_KEYWORD,
                     data="transform",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=20
+                        file_name="<unnamed>",
+                        file_offset=190,
+                        line_number=7,
+                        column_number=20,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=29
+                        file_name="<unnamed>",
+                        file_offset=199,
+                        line_number=7,
+                        column_number=29,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data="`TODO Kochava`",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=30
+                        file_name="<unnamed>",
+                        file_offset=200,
+                        line_number=7,
+                        column_number=30,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=44
+                        file_name="<unnamed>",
+                        file_offset=214,
+                        line_number=7,
+                        column_number=44,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=45
+                        file_name="<unnamed>",
+                        file_offset=215,
+                        line_number=7,
+                        column_number=45,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=46
+                        file_name="<unnamed>",
+                        file_offset=216,
+                        line_number=7,
+                        column_number=46,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=48
+                        file_name="<unnamed>",
+                        file_offset=218,
+                        line_number=7,
+                        column_number=48,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"Kochava MMP"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=49
+                        file_name="<unnamed>",
+                        file_offset=219,
+                        line_number=7,
+                        column_number=49,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=7, column_number=62
+                        file_name="<unnamed>",
+                        file_offset=232,
+                        line_number=7,
+                        column_number=62,
                     ),
                 ),
                 Token(
                     type=TokenType.DEFAULT_KEYWORD,
                     data="default",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=8, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=241,
+                        line_number=8,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.COLON,
                     data=":",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=8, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=248,
+                        line_number=8,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n            ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=8, column_number=17
+                        file_name="<unnamed>",
+                        file_offset=249,
+                        line_number=8,
+                        column_number=17,
                     ),
                 ),
                 Token(
                     type=TokenType.RETURN_KEYWORD,
                     data="return",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=13
+                        file_name="<unnamed>",
+                        file_offset=262,
+                        line_number=9,
+                        column_number=13,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=19
+                        file_name="<unnamed>",
+                        file_offset=268,
+                        line_number=9,
+                        column_number=19,
                     ),
                 ),
                 Token(
                     type=TokenType.TRANSFORM_KEYWORD,
                     data="transform",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=20
+                        file_name="<unnamed>",
+                        file_offset=269,
+                        line_number=9,
+                        column_number=20,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=29
+                        file_name="<unnamed>",
+                        file_offset=278,
+                        line_number=9,
+                        column_number=29,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data="`TODO`",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=30
+                        file_name="<unnamed>",
+                        file_offset=279,
+                        line_number=9,
+                        column_number=30,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=36
+                        file_name="<unnamed>",
+                        file_offset=285,
+                        line_number=9,
+                        column_number=36,
                     ),
                 ),
                 Token(
                     type=TokenType.PLUS,
                     data="+",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=37
+                        file_name="<unnamed>",
+                        file_offset=286,
+                        line_number=9,
+                        column_number=37,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=38
+                        file_name="<unnamed>",
+                        file_offset=287,
+                        line_number=9,
+                        column_number=38,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='" other"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=39
+                        file_name="<unnamed>",
+                        file_offset=288,
+                        line_number=9,
+                        column_number=39,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=47
+                        file_name="<unnamed>",
+                        file_offset=296,
+                        line_number=9,
+                        column_number=47,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=48
+                        file_name="<unnamed>",
+                        file_offset=297,
+                        line_number=9,
+                        column_number=48,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=49
+                        file_name="<unnamed>",
+                        file_offset=298,
+                        line_number=9,
+                        column_number=49,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=51
+                        file_name="<unnamed>",
+                        file_offset=300,
+                        line_number=9,
+                        column_number=51,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"其他MMP"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=52
+                        file_name="<unnamed>",
+                        file_offset=301,
+                        line_number=9,
+                        column_number=52,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=9, column_number=59
+                        file_name="<unnamed>",
+                        file_offset=308,
+                        line_number=9,
+                        column_number=59,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=10, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=317,
+                        line_number=10,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=10, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=318,
+                        line_number=10,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=11, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=323,
+                        line_number=11,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=11, column_number=6
+                        file_name="<unnamed>",
+                        file_offset=324,
+                        line_number=11,
+                        column_number=6,
                     ),
                 ),
                 Token(
                     type=TokenType.UNIT_KEYWORD,
                     data="unit",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=330,
+                        line_number=13,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=334,
+                        line_number=13,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.IDENTIFIER,
                     data="AttributeTypeInfo",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=335,
+                        line_number=13,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=27
+                        file_name="<unnamed>",
+                        file_offset=352,
+                        line_number=13,
+                        column_number=27,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=28
+                        file_name="<unnamed>",
+                        file_offset=353,
+                        line_number=13,
+                        column_number=28,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=30
+                        file_name="<unnamed>",
+                        file_offset=355,
+                        line_number=13,
+                        column_number=30,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"归因类型信息"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=31
+                        file_name="<unnamed>",
+                        file_offset=356,
+                        line_number=13,
+                        column_number=31,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=13, column_number=39
+                        file_name="<unnamed>",
+                        file_offset=364,
+                        line_number=13,
+                        column_number=39,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=14, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=369,
+                        line_number=14,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=14, column_number=6
+                        file_name="<unnamed>",
+                        file_offset=370,
+                        line_number=14,
+                        column_number=6,
                     ),
                 ),
                 Token(
                     type=TokenType.IF_KEYWORD,
                     data="if",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=379,
+                        line_number=15,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=11
+                        file_name="<unnamed>",
+                        file_offset=381,
+                        line_number=15,
+                        column_number=11,
                     ),
                 ),
                 Token(
                     type=TokenType.TEST_KEYWORD,
                     data="test",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=12
+                        file_name="<unnamed>",
+                        file_offset=382,
+                        line_number=15,
+                        column_number=12,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=386,
+                        line_number=15,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"NormalPostbackInfo_MmpNameInfo_Value"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=17
+                        file_name="<unnamed>",
+                        file_offset=387,
+                        line_number=15,
+                        column_number=17,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=55
+                        file_name="<unnamed>",
+                        file_offset=425,
+                        line_number=15,
+                        column_number=55,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=56
+                        file_name="<unnamed>",
+                        file_offset=426,
+                        line_number=15,
+                        column_number=56,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"eq"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=57
+                        file_name="<unnamed>",
+                        file_offset=427,
+                        line_number=15,
+                        column_number=57,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=61
+                        file_name="<unnamed>",
+                        file_offset=431,
+                        line_number=15,
+                        column_number=61,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=62
+                        file_name="<unnamed>",
+                        file_offset=432,
+                        line_number=15,
+                        column_number=62,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"Kochava"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=63
+                        file_name="<unnamed>",
+                        file_offset=433,
+                        line_number=15,
+                        column_number=63,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=72
+                        file_name="<unnamed>",
+                        file_offset=442,
+                        line_number=15,
+                        column_number=72,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=73
+                        file_name="<unnamed>",
+                        file_offset=443,
+                        line_number=15,
+                        column_number=73,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=74
+                        file_name="<unnamed>",
+                        file_offset=444,
+                        line_number=15,
+                        column_number=74,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n\n            ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=15, column_number=75
+                        file_name="<unnamed>",
+                        file_offset=445,
+                        line_number=15,
+                        column_number=75,
                     ),
                 ),
                 Token(
                     type=TokenType.IF_KEYWORD,
                     data="if",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=13
+                        file_name="<unnamed>",
+                        file_offset=459,
+                        line_number=17,
+                        column_number=13,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=15
+                        file_name="<unnamed>",
+                        file_offset=461,
+                        line_number=17,
+                        column_number=15,
                     ),
                 ),
                 Token(
                     type=TokenType.TEST_KEYWORD,
                     data="test",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=462,
+                        line_number=17,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=20
+                        file_name="<unnamed>",
+                        file_offset=466,
+                        line_number=17,
+                        column_number=20,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"RawPostbackInfo_HasAttribuType"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=21
+                        file_name="<unnamed>",
+                        file_offset=467,
+                        line_number=17,
+                        column_number=21,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=53
+                        file_name="<unnamed>",
+                        file_offset=499,
+                        line_number=17,
+                        column_number=53,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=54
+                        file_name="<unnamed>",
+                        file_offset=500,
+                        line_number=17,
+                        column_number=54,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"eq"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=55
+                        file_name="<unnamed>",
+                        file_offset=501,
+                        line_number=17,
+                        column_number=55,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=59
+                        file_name="<unnamed>",
+                        file_offset=505,
+                        line_number=17,
+                        column_number=59,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=60
+                        file_name="<unnamed>",
+                        file_offset=506,
+                        line_number=17,
+                        column_number=60,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"true"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=61
+                        file_name="<unnamed>",
+                        file_offset=507,
+                        line_number=17,
+                        column_number=61,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=67
+                        file_name="<unnamed>",
+                        file_offset=513,
+                        line_number=17,
+                        column_number=67,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n               ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=17, column_number=68
+                        file_name="<unnamed>",
+                        file_offset=514,
+                        line_number=17,
+                        column_number=68,
                     ),
                 ),
                 Token(
                     type=TokenType.LOGICAL_AND,
                     data="&&",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=530,
+                        line_number=18,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=18
+                        file_name="<unnamed>",
+                        file_offset=532,
+                        line_number=18,
+                        column_number=18,
                     ),
                 ),
                 Token(
                     type=TokenType.TEST_KEYWORD,
                     data="test",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=19
+                        file_name="<unnamed>",
+                        file_offset=533,
+                        line_number=18,
+                        column_number=19,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=23
+                        file_name="<unnamed>",
+                        file_offset=537,
+                        line_number=18,
+                        column_number=23,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"RawPostbackInfo_AttribuType"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=24
+                        file_name="<unnamed>",
+                        file_offset=538,
+                        line_number=18,
+                        column_number=24,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=53
+                        file_name="<unnamed>",
+                        file_offset=567,
+                        line_number=18,
+                        column_number=53,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=54
+                        file_name="<unnamed>",
+                        file_offset=568,
+                        line_number=18,
+                        column_number=54,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"eq"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=55
+                        file_name="<unnamed>",
+                        file_offset=569,
+                        line_number=18,
+                        column_number=55,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=59
+                        file_name="<unnamed>",
+                        file_offset=573,
+                        line_number=18,
+                        column_number=59,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=60
+                        file_name="<unnamed>",
+                        file_offset=574,
+                        line_number=18,
+                        column_number=60,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='""',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=61
+                        file_name="<unnamed>",
+                        file_offset=575,
+                        line_number=18,
+                        column_number=61,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=63
+                        file_name="<unnamed>",
+                        file_offset=577,
+                        line_number=18,
+                        column_number=63,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=64
+                        file_name="<unnamed>",
+                        file_offset=578,
+                        line_number=18,
+                        column_number=64,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=65
+                        file_name="<unnamed>",
+                        file_offset=579,
+                        line_number=18,
+                        column_number=65,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n\n                ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=18, column_number=66
+                        file_name="<unnamed>",
+                        file_offset=580,
+                        line_number=18,
+                        column_number=66,
                     ),
                 ),
                 Token(
                     type=TokenType.RETURN_KEYWORD,
                     data="return",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=17
+                        file_name="<unnamed>",
+                        file_offset=598,
+                        line_number=20,
+                        column_number=17,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=23
+                        file_name="<unnamed>",
+                        file_offset=604,
+                        line_number=20,
+                        column_number=23,
                     ),
                 ),
                 Token(
                     type=TokenType.TRANSFORM_KEYWORD,
                     data="transform",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=24
+                        file_name="<unnamed>",
+                        file_offset=605,
+                        line_number=20,
+                        column_number=24,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=33
+                        file_name="<unnamed>",
+                        file_offset=614,
+                        line_number=20,
+                        column_number=33,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data="`TODO 0`",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=34
+                        file_name="<unnamed>",
+                        file_offset=615,
+                        line_number=20,
+                        column_number=34,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=42
+                        file_name="<unnamed>",
+                        file_offset=623,
+                        line_number=20,
+                        column_number=42,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=43
+                        file_name="<unnamed>",
+                        file_offset=624,
+                        line_number=20,
+                        column_number=43,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=44
+                        file_name="<unnamed>",
+                        file_offset=625,
+                        line_number=20,
+                        column_number=44,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=46
+                        file_name="<unnamed>",
+                        file_offset=627,
+                        line_number=20,
+                        column_number=46,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"非mtg归因 - kochava"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=47
+                        file_name="<unnamed>",
+                        file_offset=628,
+                        line_number=20,
+                        column_number=47,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n            ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=20, column_number=65
+                        file_name="<unnamed>",
+                        file_offset=646,
+                        line_number=20,
+                        column_number=65,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=21, column_number=13
+                        file_name="<unnamed>",
+                        file_offset=659,
+                        line_number=21,
+                        column_number=13,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=21, column_number=14
+                        file_name="<unnamed>",
+                        file_offset=660,
+                        line_number=21,
+                        column_number=14,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=22, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=669,
+                        line_number=22,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=22, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=670,
+                        line_number=22,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.IF_KEYWORD,
                     data="if",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=680,
+                        line_number=24,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=11
+                        file_name="<unnamed>",
+                        file_offset=682,
+                        line_number=24,
+                        column_number=11,
                     ),
                 ),
                 Token(
                     type=TokenType.TEST_KEYWORD,
                     data="test",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=12
+                        file_name="<unnamed>",
+                        file_offset=683,
+                        line_number=24,
+                        column_number=12,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=687,
+                        line_number=24,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"RawPostbackInfo_AttribuType"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=17
+                        file_name="<unnamed>",
+                        file_offset=688,
+                        line_number=24,
+                        column_number=17,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=46
+                        file_name="<unnamed>",
+                        file_offset=717,
+                        line_number=24,
+                        column_number=46,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=47
+                        file_name="<unnamed>",
+                        file_offset=718,
+                        line_number=24,
+                        column_number=47,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"eq"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=48
+                        file_name="<unnamed>",
+                        file_offset=719,
+                        line_number=24,
+                        column_number=48,
                     ),
                 ),
                 Token(
                     type=TokenType.COMMA,
                     data=",",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=52
+                        file_name="<unnamed>",
+                        file_offset=723,
+                        line_number=24,
+                        column_number=52,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=53
+                        file_name="<unnamed>",
+                        file_offset=724,
+                        line_number=24,
+                        column_number=53,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"0"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=54
+                        file_name="<unnamed>",
+                        file_offset=725,
+                        line_number=24,
+                        column_number=54,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=57
+                        file_name="<unnamed>",
+                        file_offset=728,
+                        line_number=24,
+                        column_number=57,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=58
+                        file_name="<unnamed>",
+                        file_offset=729,
+                        line_number=24,
+                        column_number=58,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_BRACE,
                     data="{",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=59
+                        file_name="<unnamed>",
+                        file_offset=730,
+                        line_number=24,
+                        column_number=59,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n                ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=24, column_number=60
+                        file_name="<unnamed>",
+                        file_offset=731,
+                        line_number=24,
+                        column_number=60,
                     ),
                 ),
                 Token(
                     type=TokenType.RETURN_KEYWORD,
                     data="return",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=17
+                        file_name="<unnamed>",
+                        file_offset=748,
+                        line_number=25,
+                        column_number=17,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=23
+                        file_name="<unnamed>",
+                        file_offset=754,
+                        line_number=25,
+                        column_number=23,
                     ),
                 ),
                 Token(
                     type=TokenType.TRANSFORM_KEYWORD,
                     data="transform",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=24
+                        file_name="<unnamed>",
+                        file_offset=755,
+                        line_number=25,
+                        column_number=24,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=33
+                        file_name="<unnamed>",
+                        file_offset=764,
+                        line_number=25,
+                        column_number=33,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data="`TODO 0`",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=34
+                        file_name="<unnamed>",
+                        file_offset=765,
+                        line_number=25,
+                        column_number=34,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=42
+                        file_name="<unnamed>",
+                        file_offset=773,
+                        line_number=25,
+                        column_number=42,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=43
+                        file_name="<unnamed>",
+                        file_offset=774,
+                        line_number=25,
+                        column_number=43,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=44
+                        file_name="<unnamed>",
+                        file_offset=775,
+                        line_number=25,
+                        column_number=44,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=46
+                        file_name="<unnamed>",
+                        file_offset=777,
+                        line_number=25,
+                        column_number=46,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"非mtg归因 - 其他"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=47
+                        file_name="<unnamed>",
+                        file_offset=778,
+                        line_number=25,
+                        column_number=47,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=25, column_number=60
+                        file_name="<unnamed>",
+                        file_offset=791,
+                        line_number=25,
+                        column_number=60,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=26, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=800,
+                        line_number=26,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n\n        ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=26, column_number=10
+                        file_name="<unnamed>",
+                        file_offset=801,
+                        line_number=26,
+                        column_number=10,
                     ),
                 ),
                 Token(
                     type=TokenType.RETURN_KEYWORD,
                     data="return",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=9
+                        file_name="<unnamed>",
+                        file_offset=811,
+                        line_number=28,
+                        column_number=9,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=15
+                        file_name="<unnamed>",
+                        file_offset=817,
+                        line_number=28,
+                        column_number=15,
                     ),
                 ),
                 Token(
                     type=TokenType.TRANSFORM_KEYWORD,
                     data="transform",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=16
+                        file_name="<unnamed>",
+                        file_offset=818,
+                        line_number=28,
+                        column_number=16,
                     ),
                 ),
                 Token(
                     type=TokenType.OPEN_PAREN,
                     data="(",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=25
+                        file_name="<unnamed>",
+                        file_offset=827,
+                        line_number=28,
+                        column_number=25,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data="`TODO 1`",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=26
+                        file_name="<unnamed>",
+                        file_offset=828,
+                        line_number=28,
+                        column_number=26,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_PAREN,
                     data=")",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=34
+                        file_name="<unnamed>",
+                        file_offset=836,
+                        line_number=28,
+                        column_number=34,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=35
+                        file_name="<unnamed>",
+                        file_offset=837,
+                        line_number=28,
+                        column_number=35,
                     ),
                 ),
                 Token(
                     type=TokenType.AS_KEYWORD,
                     data="as",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=36
+                        file_name="<unnamed>",
+                        file_offset=838,
+                        line_number=28,
+                        column_number=36,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=38
+                        file_name="<unnamed>",
+                        file_offset=840,
+                        line_number=28,
+                        column_number=38,
                     ),
                 ),
                 Token(
                     type=TokenType.STRING_LITERAL,
                     data='"mtg归因"',
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=39
+                        file_name="<unnamed>",
+                        file_offset=841,
+                        line_number=28,
+                        column_number=39,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n    ",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=28, column_number=46
+                        file_name="<unnamed>",
+                        file_offset=848,
+                        line_number=28,
+                        column_number=46,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=29, column_number=5
+                        file_name="<unnamed>",
+                        file_offset=853,
+                        line_number=29,
+                        column_number=5,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=29, column_number=6
+                        file_name="<unnamed>",
+                        file_offset=854,
+                        line_number=29,
+                        column_number=6,
                     ),
                 ),
                 Token(
                     type=TokenType.CLOSE_BRACE,
                     data="}",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=30, column_number=1
+                        file_name="<unnamed>",
+                        file_offset=855,
+                        line_number=30,
+                        column_number=1,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
                     data="\n",
                     source_location=SourceLocation(
-                        file_name="<unnamed>", line_number=30, column_number=2
+                        file_name="<unnamed>",
+                        file_offset=856,
+                        line_number=30,
+                        column_number=2,
                     ),
                 ),
             ],
