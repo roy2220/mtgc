@@ -1,16 +1,20 @@
 import copy
 import json
+import re
+import uuid
 
 from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Format, Worksheet
 
-from .analyzer import Component, ReturnPoint, Unit
+from .analyzer import Component, ReturnPoint, TestExpr, Unit
 
 
 class ExcelGenerator:
     __slots__ = (
         "_components",
         "_output_file_name",
+        "_hilight_begin_mark",
+        "_hilight_mark",
         "_workbook",
         "_cell_fmt",
         "_business_unit_hdr_fmt",
@@ -20,6 +24,8 @@ class ExcelGenerator:
         "_then_hdr_fmt",
         "_input_hdr_fmt",
         "_output_hdr_fmt",
+        "_default_fmt",
+        "_highlight_fmt",
         "_worksheet",
         "_row_index",
     )
@@ -27,6 +33,7 @@ class ExcelGenerator:
     def __init__(self, components: list[Component], output_file_name: str) -> None:
         self._components = components
         self._output_file_name = output_file_name
+        self._hilight_mark = "hl:" + uuid.uuid4().hex
 
     def dump_components(self) -> None:
         self._workbook = Workbook(self._output_file_name)
@@ -94,6 +101,8 @@ class ExcelGenerator:
                 "bg_color": "#FEFF54",
             }
         )
+        self._default_fmt = self._workbook.add_format()
+        self._highlight_fmt = self._workbook.add_format({"font_color": "red"})
 
     def _dump_component(self, component: Component) -> None:
         self._row_index = 0
@@ -147,8 +156,8 @@ class ExcelGenerator:
 
                 if i == 1:
                     self._worksheet.set_column(self._row_index, column_index, 50)
-                    self._worksheet.write_column(
-                        self._row_index, column_index, [input], self._input_hdr_fmt
+                    self._write_column(
+                        self._row_index, column_index, input, self._input_hdr_fmt
                     )
                 column_index += 1
 
@@ -166,8 +175,8 @@ class ExcelGenerator:
 
                 if i == 1:
                     self._worksheet.set_column(self._row_index, column_index, 50)
-                    self._worksheet.write_column(
-                        self._row_index, column_index, [output], self._output_hdr_fmt
+                    self._write_column(
+                        self._row_index, column_index, output, self._output_hdr_fmt
                     )
                 column_index += 1
 
@@ -241,18 +250,12 @@ class ExcelGenerator:
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
-                        line = json.dumps(
-                            {"op": test_expr.op, "values": test_expr.values},
-                            ensure_ascii=False,
-                        )
-                        if not test_expr.is_positive:
-                            line = "NOT " + line
-                        lines.append(line)
-                data = "\n".join(lines) or "/"
-                self._worksheet.write_column(
+                        lines.append(self._make_match_text(test_expr))
+                text = "\n".join(lines) or "/"
+                self._write_column(
                     self._row_index,
                     column_index,
-                    [data],
+                    text,
                     self._cell_fmt,
                 )
                 column_index += 1
@@ -263,25 +266,75 @@ class ExcelGenerator:
                     for transform_item in return_point.transform:
                         output_2 = transform_item["to"]
                         if output_2 == output:
-                            transform_item = copy.deepcopy(transform_item)
-                            del transform_item["to"]
-                            del transform_item["underlying_to"]
-                            for operator in transform_item["operators"]:
-                                operator.pop("underlying_op_type", None)
-                            line = json.dumps(transform_item, ensure_ascii=False)
-                            lines.append(line)
-                    data = "\n".join(lines) or "/"
+                            lines.append(self._make_transform_item_text(transform_item))
+                    text = "\n".join(lines) or "/"
                     self._merge_range(
                         first_row_index,
                         column_index,
                         self._row_index,
                         column_index,
-                        data,
+                        text,
                         self._cell_fmt,
                     )
                 column_index += 1
 
             self._row_index += 1
+
+    def _make_match_text(self, test_expr: TestExpr) -> str:
+        values = test_expr.values.copy()
+        for i, v in enumerate(values):
+            values[i] = self._hilight_text(v)
+        match = {"op": self._hilight_text(test_expr.op), "values": values}
+        match_text = json.dumps(match, ensure_ascii=False)
+        if not test_expr.is_positive:
+            match_text = self._hilight_text("NOT") + " " + match_text
+        return match_text
+
+    def _make_transform_item_text(self, transform_item: dict) -> str:
+        transform_item = copy.deepcopy(transform_item)
+        del transform_item["to"]
+        del transform_item["underlying_to"]
+        for operator in transform_item["operators"]:
+            operator.pop("underlying_op_type", None)
+
+            operator["op"] = self._hilight_text(operator["op"])
+            values = operator.get("values", [])
+            for i, v in enumerate(values):
+                values[i] = self._hilight_text(v)
+        transform_item_text = json.dumps(transform_item, ensure_ascii=False)
+        return transform_item_text
+
+    def _hilight_text(self, text: str) -> str:
+        if text == "":
+            return ""
+        return f"<{self._hilight_mark}>{text}</{self._hilight_mark}>"
+
+    def _render_hilighted_text(self, text: str) -> list[str | Format]:
+        parts = re.split(rf"(</?{self._hilight_mark}>)", text)
+        hilight_begin = f"<{self._hilight_mark}>"
+        hilight_end = f"</{self._hilight_mark}>"
+        hilighted_text: list[str | Format] = []
+
+        for i, part in enumerate(parts):
+            if part == "":
+                continue
+
+            if part == hilight_begin:
+                hilighted_text.append(self._highlight_fmt)
+            elif part == hilight_end:
+                hilighted_text.append(self._default_fmt)
+            else:
+                hilighted_text.append(part)
+
+        return hilighted_text
+
+    def _write_column(self, row: int, col: int, text: str, format: Format) -> None:
+        if self._hilight_mark in text:
+            self._worksheet.write_rich_string(
+                row, col, *self._render_hilighted_text(text), format
+            )
+        else:
+            self._worksheet.write_column(row, col, [text], format)
 
     def _merge_range(
         self,
@@ -289,17 +342,19 @@ class ExcelGenerator:
         first_col: int,
         last_row: int,
         last_col: int,
-        data: str,
+        text: str,
         format: Format,
     ) -> None:
         if (first_row, first_col) == (last_row, last_col):
-            self._worksheet.write_column(first_row, first_col, [data], format)
+            self._write_column(first_row, first_col, text, format)
+            return
+
+        if self._hilight_mark in text:
+            self._worksheet.merge_range(first_row, first_col, last_row, last_col, "")
+            self._worksheet.write_rich_string(
+                first_row, first_col, *self._render_hilighted_text(text), format
+            )
         else:
             self._worksheet.merge_range(
-                first_row,
-                first_col,
-                last_row,
-                last_col,
-                data,
-                format,
+                first_row, first_col, last_row, last_col, text, format
             )
