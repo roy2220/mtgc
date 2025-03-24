@@ -407,11 +407,7 @@ class _P3Analyzer:
     def simplify_return_points(self, reduce_return_points: bool) -> list[ReturnPoint]:
         return_points: list[ReturnPoint] = []
 
-        raw_return_points = sorted(
-            self._raw_return_points.file_offset_2_item.values(),
-            key=lambda x: x.file_offset,
-        )
-        for raw_return_point in raw_return_points:
+        for raw_return_point in self._raw_return_points.file_offset_2_item.values():
             condiction = self._simplify_condiction(raw_return_point.condiction)
             if condiction is sympy.false:
                 continue
@@ -429,6 +425,7 @@ class _P3Analyzer:
                 )
             )
 
+        return_points.sort(key=lambda x: x.file_offset)
         if not reduce_return_points:
             return return_points
 

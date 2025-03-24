@@ -320,25 +320,23 @@ class Parser:
 
             for operator in transform_item["operators"]:
                 op_type = operator.get("op_type")
-                if op_type is None:
-                    op_type = "any"
-
-                match op_type:
-                    case "any":
-                        underlying_op_type = 0
-                    case "bool":
-                        underlying_op_type = 1
-                    case "int":
-                        underlying_op_type = 2
-                    case "string":
-                        underlying_op_type = 3
-                    case "float":
-                        underlying_op_type = 4
-                    case _:
-                        underlying_op_type = self._key_2_index.get(op_type)
-                        if underlying_op_type is None:
-                            raise UnknownKeyError(source_location, op_type)
-                operator["underlying_op_type"] = underlying_op_type
+                if op_type is not None:
+                    match op_type:
+                        case "any":
+                            underlying_op_type = 0
+                        case "bool":
+                            underlying_op_type = 1
+                        case "int":
+                            underlying_op_type = 2
+                        case "string":
+                            underlying_op_type = 3
+                        case "float":
+                            underlying_op_type = 4
+                        case _:
+                            underlying_op_type = self._key_2_index.get(op_type)
+                            if underlying_op_type is None:
+                                raise UnknownKeyError(source_location, op_type)
+                    operator["underlying_op_type"] = underlying_op_type
 
         return transform
 
@@ -485,8 +483,12 @@ class Parser:
         key, key_index = self._get_key()
         self._get_expected_token(TokenType.COMMA)
         op = self._get_string()
+        is_v_op = op.startswith("v_")
         values: list[str] = []
-        underlying_values: list[str] = []
+        if is_v_op:
+            underlying_values: list[str] = []
+        else:
+            underlying_values = values
 
         while True:
             t = self._peek_token(1)
@@ -497,13 +499,11 @@ class Parser:
             value, source_location = self._get_string_with_source_location()
             values.append(value)
 
-            if op.startswith("v_"):
+            if is_v_op:
                 key_index = self._key_2_index.get(value)
                 if key_index is None:
                     raise UnknownKeyError(source_location, value)
                 underlying_values.append(str(key_index))
-            else:
-                underlying_values.append(value)
 
         self._get_expected_token(TokenType.CLOSE_PAREN)
         return TestCondiction(

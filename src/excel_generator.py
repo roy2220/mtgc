@@ -267,7 +267,7 @@ class ExcelGenerator:
                             del transform_item["to"]
                             del transform_item["underlying_to"]
                             for operator in transform_item["operators"]:
-                                del operator["underlying_op_type"]
+                                operator.pop("underlying_op_type", None)
                             line = json.dumps(transform_item, ensure_ascii=False)
                             lines.append(line)
                     data = "\n".join(lines) or "/"
