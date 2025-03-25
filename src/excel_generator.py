@@ -296,7 +296,11 @@ class ExcelGenerator:
         del transform_item["underlying_to"]
         for operator in transform_item["operators"]:
             operator.pop("underlying_op_type", None)
+            operator.pop("underlying_from", None)
 
+            from1 = operator.get("from", [])
+            for i, v in enumerate(from1):
+                from1[i] = self._hilight_text(v)
             operator["op"] = self._hilight_text(operator["op"])
             values = operator.get("values", [])
             for i, v in enumerate(values):

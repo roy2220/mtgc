@@ -319,6 +319,16 @@ class Parser:
             transform_item["underlying_to"] = key_index
 
             for operator in transform_item["operators"]:
+                from1 = operator.get("from")
+                if from1 is not None:
+                    underlying_from: list[int] = []
+                    for key in from1:
+                        key_index = self._key_2_index.get(key)
+                        if key_index is None:
+                            raise UnknownKeyError(source_location, key)
+                        underlying_from.append(key_index)
+                    operator["underlying_from"] = underlying_from
+
                 op_type = operator.get("op_type")
                 if op_type is not None:
                     match op_type:
@@ -585,6 +595,10 @@ _transform_schema = {
                 "items": {
                     "type": "object",
                     "properties": {
+                        "from": {
+                            "type": "array",
+                            "items": {"type": "string", "minLength": 1},
+                        },
                         "op": {"type": "string", "minLength": 1},
                         "values": {
                             "type": "array",
