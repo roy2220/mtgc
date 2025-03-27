@@ -18,7 +18,7 @@ component DemandFilterFlag as "过滤打标组件"
 {
     unit DemandFilterFlag as "Demand 视角 - 最终过滤打标"
     {
-        if test("FilterContext_DemandCountryFilterFlag_IsFilter", "eq", "true") {
+        if test("FilterContext_DemandCountryFilterFlag_IsFilter", "eq", "true") as "命中国家匹配过滤" {
 
                 return transform(`[
                     {
@@ -29,11 +29,11 @@ component DemandFilterFlag as "过滤打标组件"
                         "operators": [{"op": "bypass", "values": ["demand_country_filter"]}],
                         "to": "FilterContext_DemandFilterFlag_FilterReason"
                     }
-                ]`) as "国家匹配过滤"
+                ]`) as "demand最终过滤by国家匹配"
 
         }
 
-        if test("FilterContext_DemandDuplicateFilterFlag_IsFilter", "eq", "true") {
+        if test("FilterContext_DemandDuplicateFilterFlag_IsFilter", "eq", "true") as "命中流量去重过滤" {
 
                 return transform(`[
                     {
@@ -44,7 +44,7 @@ component DemandFilterFlag as "过滤打标组件"
                         "operators": [{"op": "bypass", "values": ["demand_duplicate_filter"]}],
                         "to": "FilterContext_DemandFilterFlag_FilterReason"
                     }
-                ]`) as "流量去重过滤"
+                ]`) as "demand最终过滤by流量去重"
 
         }
 
@@ -53,16 +53,16 @@ component DemandFilterFlag as "过滤打标组件"
                 "operators": [{"op": "bool/set", "values": ["false"], "op_type": "FilterContext"}],
                 "to": "FilterContext_DemandFilterFlag_IsFilter"
             }
-        ]`) as "默认正常流量"
+        ]`) as "默认常规流量"
 
     }
 
     unit DemandDuplicateFilterFlag as "广告主视角 - 流量去重过滤打标"
     {
         switch get("RequestInfo_BasicInfo_RequestScenario") {
-            case "click":
+            case "click" as "点击上报":
 
-                if test("DemandInfo_RequestDuplicate_IsDuplicate", "eq", "true") {
+                if test("DemandInfo_RequestDuplicate_IsDuplicate", "eq", "true") as "命中点击请求纬度去重" {
 
                     return transform(`[
                         {
@@ -73,11 +73,11 @@ component DemandFilterFlag as "过滤打标组件"
                             "operators": [{"op": "bypass", "values": ["duplicate_request"]}],
                             "to": "FilterContext_DemandDuplicateFilterFlag_FilterReason"
                         }
-                    ]`) as "点击请求纬度去重"
+                    ]`) as "点击被请求纬度去重"
 
                 }
 
-                if test("DemandInfo_CCTDuplicate_IsDuplicate", "eq", "true") {
+                if test("DemandInfo_CCTDuplicate_IsDuplicate", "eq", "true") as "命中CCT用户维度去重" {
 
                     return transform(`[
                         {
@@ -88,13 +88,13 @@ component DemandFilterFlag as "过滤打标组件"
                             "operators": [{"op": "bypass", "values": ["duplicate_cct"]}],
                             "to": "FilterContext_DemandDuplicateFilterFlag_FilterReason"
                         }
-                    ]`) as "CCT用户维度去重"
+                    ]`) as "点击被CCT用户维度去重"
 
                 }
 
-            case "impression":
+            case "impression" as "展示上报":
 
-                if test("DemandInfo_RequestDuplicate_IsDuplicate", "eq", "true") {
+                if test("DemandInfo_RequestDuplicate_IsDuplicate", "eq", "true") as "命中展示请求纬度去重" {
 
                     return transform(`[
                         {
@@ -105,7 +105,7 @@ component DemandFilterFlag as "过滤打标组件"
                             "operators": [{"op": "bypass", "values": ["duplicate_request"]}],
                             "to": "FilterContext_DemandDuplicateFilterFlag_FilterReason"
                         }
-                    ]`) as "展示请求纬度去重"
+                    ]`) as "展示被请求纬度去重"
 
                 }
         }
@@ -115,8 +115,8 @@ component DemandFilterFlag as "过滤打标组件"
 
     unit DemandCountryFilterFlag as "广告主视角 - 国家匹配过滤打标"
     {
-        if test("RequestInfo_BasicInfo_RequestScenario", "eq", "click")
-            && test("TrackingCoreModel_DeviceInfo_CountryCode", "v_nin", "CampaignInfo_CountryCode") {
+        if test("RequestInfo_BasicInfo_RequestScenario", "eq", "click") as "点击上报"
+            && !test("TrackingCoreModel_DeviceInfo_CountryCode", "v_in", "CampaignInfo_CountryCode") as "流量国家在单子投放国家列表" {
 
             return transform(`[
                 {
@@ -127,7 +127,7 @@ component DemandFilterFlag as "过滤打标组件"
                     "operators": [{"op": "bypass", "values": ["country_banned"]}],
                     "to": "FilterContext_DemandCountryFilterFlag_FilterReason"
                 }
-            ]`) as "展示请求纬度去重"
+            ]`) as "被单子投放国家过滤信息"
         }
 
         return transform(`[]`) as "默认不过滤"

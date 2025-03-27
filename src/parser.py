@@ -42,13 +42,12 @@ class ReturnStatement:
 class IfStatement:
     source_location: SourceLocation
     condiction: "Condiction"
-    then: list[Statement]
+    body: list[Statement]
     else_if_clauses: list["ElseIfClause"]
-    else_clause: list[Statement]
+    else_clause: "ElseClause"
 
     # for analysis
-    then_link: Statement | None = None
-    else_clause_link: Statement | None = None
+    body_link: Statement | None = None
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_if_statement(self)
@@ -58,10 +57,20 @@ class IfStatement:
 class ElseIfClause:
     source_location: SourceLocation
     condiction: "Condiction"
-    then: list[Statement]
+    body: list[Statement]
 
     # for analysis
-    then_link: Statement | None = None
+    body_link: Statement | None = None
+
+
+@dataclass
+class ElseClause:
+    # if source_location is None, no ElseClause present
+    source_location: SourceLocation | None
+    body: list[Statement]
+
+    # for analysis
+    body_link: Statement | None = None
 
 
 @dataclass
@@ -70,10 +79,7 @@ class SwitchStatement:
     key: str
     key_index: int
     case_clauses: list["CaseClause"]
-    default_case_clause: list[Statement]
-
-    # for analysis
-    default_case_clause_link: Statement | None = None
+    default_case_clause: "DefaultCaseClause"
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_switch_statement(self)
@@ -83,10 +89,20 @@ class SwitchStatement:
 class CaseClause:
     source_location: SourceLocation
     values_and_facts: list[tuple[str, str]]
-    then: list[Statement]
+    body: list[Statement]
 
     # for analysis
-    then_link: Statement | None = None
+    body_link: Statement | None = None
+
+
+@dataclass
+class DefaultCaseClause:
+    # if source_location is None, no DefaultCaseClause present
+    source_location: SourceLocation | None
+    body: list[Statement]
+
+    # for analysis
+    body_link: Statement | None = None
 
 
 type Condiction = "ConstantCondiction | TestCondiction | CompositeCondiction"
@@ -374,12 +390,7 @@ class Parser:
             case_clause = self._get_case_clause()
             case_clauses.append(case_clause)
 
-        default_case_clause: list[Statement] = []
-        if self._peek_token(1).type == TokenType.DEFAULT_KEYWORD:
-            self._discard_tokens(1)
-            self._get_expected_token(TokenType.COLON)
-            default_case_clause = self._get_statements()
-
+        default_case_clause = self._maybe_get_default_case_clause()
         self._get_expected_token(TokenType.CLOSE_BRACE)
 
         return SwitchStatement(
@@ -405,14 +416,25 @@ class Parser:
 
         self._get_expected_token(TokenType.COLON)
 
-        then = self._get_statements()
-        return CaseClause(source_location, values_and_facts, then)
+        body = self._get_statements()
+        return CaseClause(source_location, values_and_facts, body)
+
+    def _maybe_get_default_case_clause(self) -> DefaultCaseClause:
+        t = self._peek_token(1)
+        if t.type != TokenType.DEFAULT_KEYWORD:
+            return DefaultCaseClause(None, [])
+
+        source_location = t.source_location
+        self._discard_tokens(1)
+        self._get_expected_token(TokenType.COLON)
+        body = self._get_statements()
+        return DefaultCaseClause(source_location, body)
 
     def _get_if_statement(self) -> IfStatement:
         source_location = self._get_expected_token(TokenType.IF_KEYWORD).source_location
         condiction = self._get_condiction(0)
         self._get_expected_token(TokenType.OPEN_BRACE)
-        then = self._get_statements()
+        body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
 
         else_if_clauses: list[ElseIfClause] = []
@@ -426,15 +448,10 @@ class Parser:
             else_if_clause = self._get_else_if_clause()
             else_if_clauses.append(else_if_clause)
 
-        else_clause: list[Statement] = []
-        if self._peek_token(1).type == TokenType.ELSE_KEYWORD:
-            self._discard_tokens(1)
-            self._get_expected_token(TokenType.OPEN_BRACE)
-            else_clause = self._get_statements()
-            self._get_expected_token(TokenType.CLOSE_BRACE)
+        else_clause = self._maybe_get_else_clause()
 
         return IfStatement(
-            source_location, condiction, then, else_if_clauses, else_clause
+            source_location, condiction, body, else_if_clauses, else_clause
         )
 
     def _get_else_if_clause(self) -> ElseIfClause:
@@ -444,9 +461,21 @@ class Parser:
         self._get_expected_token(TokenType.IF_KEYWORD)
         condiction = self._get_condiction(0)
         self._get_expected_token(TokenType.OPEN_BRACE)
-        then = self._get_statements()
+        body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return ElseIfClause(source_location, condiction, then)
+        return ElseIfClause(source_location, condiction, body)
+
+    def _maybe_get_else_clause(self) -> ElseClause:
+        t = self._peek_token(1)
+        if t.type != TokenType.ELSE_KEYWORD:
+            return ElseClause(None, [])
+
+        source_location = t.source_location
+        self._discard_tokens(1)
+        self._get_expected_token(TokenType.OPEN_BRACE)
+        body = self._get_statements()
+        self._get_expected_token(TokenType.CLOSE_BRACE)
+        return ElseClause(source_location, body)
 
     def _get_condiction(self, min_binary_op_precedence: int | None) -> Condiction:
         t = self._peek_token(1)

@@ -157,39 +157,39 @@ class _P1Analyzer(Visitor):
 
     def visit_if_statement(self, if_statement: IfStatement) -> None:
         def set_link_1(s: Statement) -> None:
-            if_statement.then_link = s
+            if_statement.body_link = s
 
         self._link_setter_stack.append(set_link_1)
-        self._visit_block(if_statement.then)
+        self._visit_block(if_statement.body)
 
         for else_if_clause in if_statement.else_if_clauses:
 
             def set_link_2(s: Statement) -> None:
-                else_if_clause.then_link = s
+                else_if_clause.body_link = s
 
             self._link_setter_stack.append(set_link_2)
-            self._visit_block(else_if_clause.then)
+            self._visit_block(else_if_clause.body)
 
         def set_link_3(s: Statement) -> None:
-            if_statement.else_clause_link = s
+            if_statement.else_clause.body_link = s
 
         self._link_setter_stack.append(set_link_3)
-        self._visit_block(if_statement.else_clause)
+        self._visit_block(if_statement.else_clause.body)
 
     def visit_switch_statement(self, switch_statement: SwitchStatement) -> None:
         for case_clause in switch_statement.case_clauses:
 
             def set_link_1(s: Statement) -> None:
-                case_clause.then_link = s
+                case_clause.body_link = s
 
             self._link_setter_stack.append(set_link_1)
-            self._visit_block(case_clause.then)
+            self._visit_block(case_clause.body)
 
         def set_link_2(s: Statement) -> None:
-            switch_statement.default_case_clause_link = s
+            switch_statement.default_case_clause.body_link = s
 
         self._link_setter_stack.append(set_link_2)
-        self._visit_block(switch_statement.default_case_clause)
+        self._visit_block(switch_statement.default_case_clause.body)
 
 
 @dataclass
@@ -275,7 +275,7 @@ class _P2Analyzer(Visitor):
     def visit_if_statement(self, if_statement: IfStatement) -> None:
         if_statement.condiction.accept_visit(self)
 
-        if (s := if_statement.then_link) is not None:
+        if (s := if_statement.body_link) is not None:
             s.accept_visit(self)
 
         other_condiction = boolalg.Not(self._condiction_stack.pop())
@@ -287,7 +287,7 @@ class _P2Analyzer(Visitor):
                 other_condiction, self._condiction_stack[-1]
             )
 
-            if (s := else_if_clause.then_link) is not None:
+            if (s := else_if_clause.body_link) is not None:
                 s.accept_visit(self)
 
             other_condiction = boolalg.And(
@@ -296,7 +296,7 @@ class _P2Analyzer(Visitor):
 
         self._condiction_stack.append(other_condiction)
 
-        if (s := if_statement.else_clause_link) is not None:
+        if (s := if_statement.else_clause.body_link) is not None:
             s.accept_visit(self)
 
         del self._condiction_stack[-1]
@@ -330,7 +330,7 @@ class _P2Analyzer(Visitor):
             assert condiction is not None
             self._condiction_stack.append(condiction)
 
-            if (s := case_clause.then_link) is not None:
+            if (s := case_clause.body_link) is not None:
                 s.accept_visit(self)
 
             del self._condiction_stack[-1]
@@ -345,7 +345,7 @@ class _P2Analyzer(Visitor):
         assert other_condiction is not None
         self._condiction_stack.append(other_condiction)
 
-        if (s := switch_statement.default_case_clause_link) is not None:
+        if (s := switch_statement.default_case_clause.body_link) is not None:
             s.accept_visit(self)
 
         del self._condiction_stack[-1]

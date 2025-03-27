@@ -7,6 +7,8 @@ from src.parser import (
     ComponentDeclaration,
     CompositeCondiction,
     ConstantCondiction,
+    DefaultCaseClause,
+    ElseClause,
     ElseIfClause,
     IfStatement,
     OpType,
@@ -46,9 +48,9 @@ component DemoInfo as "just demo"
     unit Test1 as "Test1"
     {
         switch get("Var_MyKey") {
-            case "abc", "efg":
+            case "abc" as "tag1", "efg" as "tag2":
                 return transform(`[]`) as "Value1"
-            case "xyz":
+            case "xyz" as "tag3":
                 return transform(`[]`) as "Value2"
             default:
                 return transform(`[]`) as "Value3"
@@ -58,11 +60,11 @@ component DemoInfo as "just demo"
 
     unit Test2 as "Test2"
     {
-        if test("Var_1", "eq", "100") ||
-           !(test("Var_2", "eq", "200") && test("Var_3", "eq", "300")) {
+        if test("Var_1", "eq", "100") as "tag4" ||
+           !(test("Var_2", "eq", "200") as "tag9" && test("Var_3", "eq", "300") as "tag5") {
 
             return transform(`[]`) as "Value1"
-        } else if (test("Var_4", "eq", "400") || test("Var_5", "eq", "500")) && !test("Var_6", "eq", "600") {
+        } else if (test("Var_4", "eq", "400") as "tag6" || test("Var_5", "eq", "500") as "tag7") && !test("Var_6", "eq", "600") as "tag8" {
             if false {
             return transform(`[]`) as "Value2"
             }
@@ -81,13 +83,14 @@ component DemoInfo as "just demo"
             parser = Parser(scanner)
             cd = parser.get_component_declaration()
 
+        print(cd)
         self.assertEqual(
             cd,
             ComponentDeclaration(
                 source_location=SourceLocation(
                     file_name="<unnamed>",
-                    file_offset=27,
-                    line_number=3,
+                    file_offset=26,
+                    line_number=2,
                     column_number=1,
                 ),
                 name="DemoInfo",
@@ -96,8 +99,8 @@ component DemoInfo as "just demo"
                     UnitDeclaration(
                         source_location=SourceLocation(
                             file_name="<unnamed>",
-                            file_offset=67,
-                            line_number=5,
+                            file_offset=66,
+                            line_number=4,
                             column_number=5,
                         ),
                         name="Test1",
@@ -106,8 +109,8 @@ component DemoInfo as "just demo"
                             SwitchStatement(
                                 source_location=SourceLocation(
                                     file_name="<unnamed>",
-                                    file_offset=103,
-                                    line_number=7,
+                                    file_offset=102,
+                                    line_number=6,
                                     column_number=9,
                                 ),
                                 key="Var_MyKey",
@@ -116,79 +119,90 @@ component DemoInfo as "just demo"
                                     CaseClause(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=141,
-                                            line_number=8,
+                                            file_offset=140,
+                                            line_number=7,
                                             column_number=13,
                                         ),
-                                        values=["abc", "efg"],
-                                        then=[
+                                        values_and_facts=[
+                                            ("abc", "tag1"),
+                                            ("efg", "tag2"),
+                                        ],
+                                        body=[
                                             ReturnStatement(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=176,
-                                                    line_number=9,
+                                                    file_offset=195,
+                                                    line_number=8,
                                                     column_number=17,
                                                 ),
                                                 transform=[],
-                                                transform_scenario="Value1",
+                                                transform_annotation="Value1",
                                             )
                                         ],
-                                        then_link=None,
+                                        body_link=None,
                                     ),
                                     CaseClause(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=223,
-                                            line_number=10,
+                                            file_offset=242,
+                                            line_number=9,
                                             column_number=13,
                                         ),
-                                        values=["xyz"],
-                                        then=[
+                                        values_and_facts=[("xyz", "tag3")],
+                                        body=[
                                             ReturnStatement(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=251,
-                                                    line_number=11,
+                                                    file_offset=280,
+                                                    line_number=10,
                                                     column_number=17,
                                                 ),
                                                 transform=[],
-                                                transform_scenario="Value2",
+                                                transform_annotation="Value2",
                                             )
                                         ],
-                                        then_link=None,
+                                        body_link=None,
                                     ),
                                 ],
-                                default_case_clause=[
-                                    ReturnStatement(
-                                        source_location=SourceLocation(
-                                            file_name="<unnamed>",
-                                            file_offset=323,
-                                            line_number=13,
-                                            column_number=17,
-                                        ),
-                                        transform=[],
-                                        transform_scenario="Value3",
-                                    )
-                                ],
-                                default_case_clause_link=None,
+                                default_case_clause=DefaultCaseClause(
+                                    source_location=SourceLocation(
+                                        file_name="<unnamed>",
+                                        file_offset=327,
+                                        line_number=11,
+                                        column_number=13,
+                                    ),
+                                    body=[
+                                        ReturnStatement(
+                                            source_location=SourceLocation(
+                                                file_name="<unnamed>",
+                                                file_offset=352,
+                                                line_number=12,
+                                                column_number=17,
+                                            ),
+                                            transform=[],
+                                            transform_annotation="Value3",
+                                        )
+                                    ],
+                                    body_link=None,
+                                ),
                             ),
                             ReturnStatement(
                                 source_location=SourceLocation(
                                     file_name="<unnamed>",
-                                    file_offset=376,
-                                    line_number=15,
+                                    file_offset=405,
+                                    line_number=14,
                                     column_number=9,
                                 ),
                                 transform=[],
-                                transform_scenario="Value4",
+                                transform_annotation="Value4",
                             ),
                         ],
                     ),
                     UnitDeclaration(
                         source_location=SourceLocation(
                             file_name="<unnamed>",
-                            file_offset=422,
-                            line_number=18,
+                            file_offset=451,
+                            line_number=17,
                             column_number=5,
                         ),
                         name="Test2",
@@ -197,23 +211,23 @@ component DemoInfo as "just demo"
                             IfStatement(
                                 source_location=SourceLocation(
                                     file_name="<unnamed>",
-                                    file_offset=458,
-                                    line_number=20,
+                                    file_offset=487,
+                                    line_number=19,
                                     column_number=9,
                                 ),
                                 condiction=CompositeCondiction(
                                     source_location=SourceLocation(
                                         file_name="<unnamed>",
-                                        file_offset=481,
-                                        line_number=20,
+                                        file_offset=510,
+                                        line_number=19,
                                         column_number=32,
                                     ),
                                     logical_op_type=OpType.LOGICAL_OR,
                                     condiction1=TestCondiction(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=481,
-                                            line_number=20,
+                                            file_offset=510,
+                                            line_number=19,
                                             column_number=32,
                                         ),
                                         key="Var_1",
@@ -221,28 +235,29 @@ component DemoInfo as "just demo"
                                         op="eq",
                                         values=["100"],
                                         underlying_values=["100"],
+                                        fact="tag4",
                                     ),
                                     condiction2=CompositeCondiction(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=502,
-                                            line_number=21,
+                                            file_offset=541,
+                                            line_number=20,
                                             column_number=12,
                                         ),
                                         logical_op_type=OpType.LOGICAL_NOT,
                                         condiction1=CompositeCondiction(
                                             source_location=SourceLocation(
                                                 file_name="<unnamed>",
-                                                file_offset=524,
-                                                line_number=21,
+                                                file_offset=563,
+                                                line_number=20,
                                                 column_number=34,
                                             ),
                                             logical_op_type=OpType.LOGICAL_AND,
                                             condiction1=TestCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=524,
-                                                    line_number=21,
+                                                    file_offset=563,
+                                                    line_number=20,
                                                     column_number=34,
                                                 ),
                                                 key="Var_2",
@@ -250,65 +265,67 @@ component DemoInfo as "just demo"
                                                 op="eq",
                                                 values=["200"],
                                                 underlying_values=["200"],
+                                                fact="tag9",
                                             ),
                                             condiction2=TestCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=554,
-                                                    line_number=21,
-                                                    column_number=64,
+                                                    file_offset=603,
+                                                    line_number=20,
+                                                    column_number=74,
                                                 ),
                                                 key="Var_3",
                                                 key_index=1200003,
                                                 op="eq",
                                                 values=["300"],
                                                 underlying_values=["300"],
+                                                fact="tag5",
                                             ),
                                         ),
                                         condiction2=None,
                                     ),
                                 ),
-                                then=[
+                                body=[
                                     ReturnStatement(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=577,
-                                            line_number=23,
+                                            file_offset=636,
+                                            line_number=22,
                                             column_number=13,
                                         ),
                                         transform=[],
-                                        transform_scenario="Value1",
+                                        transform_annotation="Value1",
                                     )
                                 ],
                                 else_if_clauses=[
                                     ElseIfClause(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
-                                            file_offset=622,
-                                            line_number=24,
+                                            file_offset=681,
+                                            line_number=23,
                                             column_number=11,
                                         ),
                                         condiction=CompositeCondiction(
                                             source_location=SourceLocation(
                                                 file_name="<unnamed>",
-                                                file_offset=651,
-                                                line_number=24,
+                                                file_offset=710,
+                                                line_number=23,
                                                 column_number=40,
                                             ),
                                             logical_op_type=OpType.LOGICAL_AND,
                                             condiction1=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=651,
-                                                    line_number=24,
+                                                    file_offset=710,
+                                                    line_number=23,
                                                     column_number=40,
                                                 ),
                                                 logical_op_type=OpType.LOGICAL_OR,
                                                 condiction1=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
-                                                        file_offset=651,
-                                                        line_number=24,
+                                                        file_offset=710,
+                                                        line_number=23,
                                                         column_number=40,
                                                     ),
                                                     key="Var_4",
@@ -316,158 +333,175 @@ component DemoInfo as "just demo"
                                                     op="eq",
                                                     values=["400"],
                                                     underlying_values=["400"],
+                                                    fact="tag6",
                                                 ),
                                                 condiction2=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
-                                                        file_offset=681,
-                                                        line_number=24,
-                                                        column_number=70,
+                                                        file_offset=750,
+                                                        line_number=23,
+                                                        column_number=80,
                                                     ),
                                                     key="Var_5",
                                                     key_index=1200005,
                                                     op="eq",
                                                     values=["500"],
                                                     underlying_values=["500"],
+                                                    fact="tag7",
                                                 ),
                                             ),
                                             condiction2=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=692,
-                                                    line_number=24,
-                                                    column_number=81,
+                                                    file_offset=771,
+                                                    line_number=23,
+                                                    column_number=101,
                                                 ),
                                                 logical_op_type=OpType.LOGICAL_NOT,
                                                 condiction1=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
-                                                        file_offset=713,
-                                                        line_number=24,
-                                                        column_number=102,
+                                                        file_offset=792,
+                                                        line_number=23,
+                                                        column_number=122,
                                                     ),
                                                     key="Var_6",
                                                     key_index=1200005,
                                                     op="eq",
                                                     values=["600"],
                                                     underlying_values=["600"],
+                                                    fact="tag8",
                                                 ),
                                                 condiction2=None,
                                             ),
                                         ),
-                                        then=[
+                                        body=[
                                             IfStatement(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=734,
-                                                    line_number=25,
+                                                    file_offset=823,
+                                                    line_number=24,
                                                     column_number=13,
                                                 ),
                                                 condiction=ConstantCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
-                                                        file_offset=737,
-                                                        line_number=25,
+                                                        file_offset=826,
+                                                        line_number=24,
                                                         column_number=16,
                                                     ),
                                                     constant=False,
                                                 ),
-                                                then=[
+                                                body=[
                                                     ReturnStatement(
                                                         source_location=SourceLocation(
                                                             file_name="<unnamed>",
-                                                            file_offset=757,
-                                                            line_number=26,
+                                                            file_offset=846,
+                                                            line_number=25,
                                                             column_number=13,
                                                         ),
                                                         transform=[],
-                                                        transform_scenario="Value2",
+                                                        transform_annotation="Value2",
                                                     )
                                                 ],
                                                 else_if_clauses=[],
-                                                else_clause=[],
-                                                then_link=None,
-                                                else_clause_link=None,
+                                                else_clause=ElseClause(
+                                                    source_location=None,
+                                                    body=[],
+                                                    body_link=None,
+                                                ),
+                                                body_link=None,
                                             )
                                         ],
-                                        then_link=None,
+                                        body_link=None,
                                     )
                                 ],
-                                else_clause=[
-                                    IfStatement(
-                                        source_location=SourceLocation(
-                                            file_name="<unnamed>",
-                                            file_offset=835,
-                                            line_number=29,
-                                            column_number=13,
-                                        ),
-                                        condiction=CompositeCondiction(
+                                else_clause=ElseClause(
+                                    source_location=SourceLocation(
+                                        file_name="<unnamed>",
+                                        file_offset=905,
+                                        line_number=27,
+                                        column_number=11,
+                                    ),
+                                    body=[
+                                        IfStatement(
                                             source_location=SourceLocation(
                                                 file_name="<unnamed>",
-                                                file_offset=838,
-                                                line_number=29,
-                                                column_number=16,
+                                                file_offset=924,
+                                                line_number=28,
+                                                column_number=13,
                                             ),
-                                            logical_op_type=OpType.LOGICAL_OR,
-                                            condiction1=ConstantCondiction(
+                                            condiction=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
-                                                    file_offset=838,
-                                                    line_number=29,
+                                                    file_offset=927,
+                                                    line_number=28,
                                                     column_number=16,
                                                 ),
-                                                constant=True,
-                                            ),
-                                            condiction2=CompositeCondiction(
-                                                source_location=SourceLocation(
-                                                    file_name="<unnamed>",
-                                                    file_offset=846,
-                                                    line_number=29,
-                                                    column_number=24,
-                                                ),
-                                                logical_op_type=OpType.LOGICAL_NOT,
+                                                logical_op_type=OpType.LOGICAL_OR,
                                                 condiction1=ConstantCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
-                                                        file_offset=847,
-                                                        line_number=29,
-                                                        column_number=25,
+                                                        file_offset=927,
+                                                        line_number=28,
+                                                        column_number=16,
                                                     ),
-                                                    constant=False,
+                                                    constant=True,
                                                 ),
-                                                condiction2=None,
+                                                condiction2=CompositeCondiction(
+                                                    source_location=SourceLocation(
+                                                        file_name="<unnamed>",
+                                                        file_offset=935,
+                                                        line_number=28,
+                                                        column_number=24,
+                                                    ),
+                                                    logical_op_type=OpType.LOGICAL_NOT,
+                                                    condiction1=ConstantCondiction(
+                                                        source_location=SourceLocation(
+                                                            file_name="<unnamed>",
+                                                            file_offset=936,
+                                                            line_number=28,
+                                                            column_number=25,
+                                                        ),
+                                                        constant=False,
+                                                    ),
+                                                    condiction2=None,
+                                                ),
                                             ),
+                                            body=[
+                                                ReturnStatement(
+                                                    source_location=SourceLocation(
+                                                        file_name="<unnamed>",
+                                                        file_offset=960,
+                                                        line_number=29,
+                                                        column_number=17,
+                                                    ),
+                                                    transform=[],
+                                                    transform_annotation="Value3",
+                                                )
+                                            ],
+                                            else_if_clauses=[],
+                                            else_clause=ElseClause(
+                                                source_location=None,
+                                                body=[],
+                                                body_link=None,
+                                            ),
+                                            body_link=None,
                                         ),
-                                        then=[
-                                            ReturnStatement(
-                                                source_location=SourceLocation(
-                                                    file_name="<unnamed>",
-                                                    file_offset=871,
-                                                    line_number=30,
-                                                    column_number=17,
-                                                ),
-                                                transform=[],
-                                                transform_scenario="Value3",
-                                            )
-                                        ],
-                                        else_if_clauses=[],
-                                        else_clause=[],
-                                        then_link=None,
-                                        else_clause_link=None,
-                                    ),
-                                    ReturnStatement(
-                                        source_location=SourceLocation(
-                                            file_name="<unnamed>",
-                                            file_offset=932,
-                                            line_number=32,
-                                            column_number=13,
+                                        ReturnStatement(
+                                            source_location=SourceLocation(
+                                                file_name="<unnamed>",
+                                                file_offset=1021,
+                                                line_number=31,
+                                                column_number=13,
+                                            ),
+                                            transform=[],
+                                            transform_annotation="Value2",
                                         ),
-                                        transform=[],
-                                        transform_scenario="Value2",
-                                    ),
-                                ],
-                                then_link=None,
-                                else_clause_link=None,
+                                    ],
+                                    body_link=None,
+                                ),
+                                body_link=None,
                             )
                         ],
                     ),
