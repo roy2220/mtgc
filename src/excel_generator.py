@@ -354,7 +354,9 @@ class ExcelGenerator:
             return
 
         if self._hilight_mark in text:
-            self._worksheet.merge_range(first_row, first_col, last_row, last_col, "")
+            self._worksheet.merge_range(
+                first_row, first_col, last_row, last_col, "", format
+            )
             self._worksheet.write_rich_string(
                 first_row, first_col, *self._render_hilighted_text(text), format
             )
