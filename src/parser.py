@@ -1,6 +1,7 @@
 import enum
 import io
 import json
+import os
 from dataclasses import dataclass
 
 import jsonschema
@@ -176,8 +177,14 @@ class Parser:
             self._import_file()
 
     def _import_file(self):
-        self._get_expected_token(TokenType.IMPORT_KEYWORD)
+        current_file_name = self._get_expected_token(
+            TokenType.IMPORT_KEYWORD
+        ).source_location.file_name
         file_name, source_location = self._get_string_with_source_location()
+
+        if current_file_name != "<unnamed>":
+            current_dir_name = os.path.dirname(current_file_name)
+            file_name = os.path.join(current_dir_name, file_name)
 
         try:
             with open(file_name, "r") as f:

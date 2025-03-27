@@ -4,7 +4,7 @@ import re
 import uuid
 
 from xlsxwriter import Workbook
-from xlsxwriter.worksheet import Format, Worksheet
+from xlsxwriter.worksheet import Format
 
 from .analyzer import Component, ReturnPoint, TestExpr, Unit
 
