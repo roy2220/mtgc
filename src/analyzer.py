@@ -42,7 +42,7 @@ class ReturnPoint:
     or_expr: "OrExpr"
     file_offset: int
     transform: dict
-    transform_scenario: str
+    transform_annotation: str
 
 
 @dataclass
@@ -64,6 +64,7 @@ class TestExpr:
     op: str
     values: list[str]
     underlying_values: list[str]
+    fact: str
 
 
 class Analyzer:
@@ -201,7 +202,7 @@ class _P2ReturnPoints:
 class _P2ReturnPoint:
     file_offset: int
     transform: dict
-    transform_scenario: str
+    transform_annotation: str
     condiction: boolalg.Boolean
 
 
@@ -213,6 +214,7 @@ class _TestArgs:
     op: str
     values: list[str]
     underlying_values: list[str]
+    fact: str
 
 
 class _P2Analyzer(Visitor):
@@ -260,7 +262,7 @@ class _P2Analyzer(Visitor):
             return_point = _P2ReturnPoint(
                 file_offset,
                 return_statement.transform,
-                return_statement.transform_scenario,
+                return_statement.transform_annotation,
                 condiction,
             )
             self._return_points.file_offset_2_item[file_offset] = return_point
@@ -305,7 +307,7 @@ class _P2Analyzer(Visitor):
 
         for case_clause in switch_statement.case_clauses:
             condiction = None
-            for i, case_value in enumerate(case_clause.values):
+            for i, (case_value, fact) in enumerate(case_clause.values_and_facts):
                 if case_value in case_values:
                     raise DuplicateCaseValueError(case_clause, i)
                 case_values.add(case_value)
@@ -317,6 +319,7 @@ class _P2Analyzer(Visitor):
                     "eq",
                     [case_value],
                     [case_value],
+                    fact,
                 )
                 if condiction is None:
                     condiction = self._get_or_new_symbol(test_args)
@@ -363,6 +366,7 @@ class _P2Analyzer(Visitor):
             test_condiction.op,
             test_condiction.values,
             test_condiction.underlying_values,
+            test_condiction.fact,
         )
         self._condiction_stack.append(self._get_or_new_symbol(test_args))
 
@@ -421,7 +425,7 @@ class _P3Analyzer:
                     or_expr,
                     raw_return_point.file_offset,
                     raw_return_point.transform,
-                    raw_return_point.transform_scenario,
+                    raw_return_point.transform_annotation,
                 )
             )
 
@@ -477,6 +481,7 @@ class _P3Analyzer:
             test_args.op,
             test_args.values,
             test_args.underlying_values,
+            test_args.fact,
         )
 
     @classmethod
@@ -558,7 +563,7 @@ class DuplicateCaseValueError(Error):
     def __init__(self, case_clause: CaseClause, case_value_index: int) -> None:
         super().__init__(
             case_clause.source_location,
-            f"duplicate case value: {repr(case_clause.values[case_value_index])}",
+            f"duplicate case value: {repr(case_clause.values_and_facts[case_value_index][0])}",
         )
 
 

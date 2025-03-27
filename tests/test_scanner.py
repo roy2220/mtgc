@@ -9,13 +9,14 @@ class TestScanner(unittest.TestCase):
         scanner = Scanner(
             StringIO(
                 """\
+// comment1
 component NormalPostbackInfo as "回传信息规整"
 {
     unit MmpNameInfo as "MMP名信息"
     {
-        switch get("RawPostbackInfo_ThreeType") {
-        case "kochava", "min_kochava":
-            return transform(`TODO Kochava`) as "Kochava MMP"
+        switch get("RawPostbackInfo_ThreeType") as "aaa" {
+        case "kochava" as "bbb", "min_kochava" as "cccc":
+            return transform(`TODO Kochava`) as "Kochava MMP" // comment2
         default:
             return transform(`TODO` + " other") as "其他MMP"
         }
@@ -23,16 +24,17 @@ component NormalPostbackInfo as "回传信息规整"
 
     unit AttributeTypeInfo as "归因类型信息"
     {
-        if test("NormalPostbackInfo_MmpNameInfo_Value", "eq", "Kochava") {
+        if test("NormalPostbackInfo_MmpNameInfo_Value", "eq", "Kochava") as "aaa" {
 
-            if test("RawPostbackInfo_HasAttribuType", "eq", "true")
-               && test("RawPostbackInfo_AttribuType", "eq", "") {
+            if test("RawPostbackInfo_HasAttribuType", "eq", "true") as "ccc"
+               && test("RawPostbackInfo_AttribuType", "eq", "") as "ddd" {
 
                 return transform(`TODO 0`) as "非mtg归因 - kochava"
             }
         }
 
-        if test("RawPostbackInfo_AttribuType", "eq", "0") {
+        // comment3
+        if test("RawPostbackInfo_AttribuType", "eq", "0") as "eeee" {
                 return transform(`TODO 0`) as "非mtg归因 - 其他"
         }
 
@@ -55,8 +57,8 @@ component NormalPostbackInfo as "回传信息规整"
             tokens,
             [
                 Token(
-                    type=TokenType.COMPONENT_KEYWORD,
-                    data="component",
+                    type=TokenType.COMMENT,
+                    data="/// comment1\n",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
                         file_offset=0,
@@ -65,12 +67,22 @@ component NormalPostbackInfo as "回传信息规整"
                     ),
                 ),
                 Token(
+                    type=TokenType.COMPONENT_KEYWORD,
+                    data="component",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=12,
+                        line_number=2,
+                        column_number=1,
+                    ),
+                ),
+                Token(
                     type=TokenType.WHITESPACE,
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=9,
-                        line_number=1,
+                        file_offset=21,
+                        line_number=2,
                         column_number=10,
                     ),
                 ),
@@ -79,8 +91,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="NormalPostbackInfo",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=10,
-                        line_number=1,
+                        file_offset=22,
+                        line_number=2,
                         column_number=11,
                     ),
                 ),
@@ -89,8 +101,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=28,
-                        line_number=1,
+                        file_offset=40,
+                        line_number=2,
                         column_number=29,
                     ),
                 ),
@@ -99,8 +111,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=29,
-                        line_number=1,
+                        file_offset=41,
+                        line_number=2,
                         column_number=30,
                     ),
                 ),
@@ -109,8 +121,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=31,
-                        line_number=1,
+                        file_offset=43,
+                        line_number=2,
                         column_number=32,
                     ),
                 ),
@@ -119,8 +131,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"回传信息规整"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=32,
-                        line_number=1,
+                        file_offset=44,
+                        line_number=2,
                         column_number=33,
                     ),
                 ),
@@ -129,8 +141,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=40,
-                        line_number=1,
+                        file_offset=52,
+                        line_number=2,
                         column_number=41,
                     ),
                 ),
@@ -139,8 +151,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="{",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=41,
-                        line_number=2,
+                        file_offset=53,
+                        line_number=3,
                         column_number=1,
                     ),
                 ),
@@ -149,8 +161,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=42,
-                        line_number=2,
+                        file_offset=54,
+                        line_number=3,
                         column_number=2,
                     ),
                 ),
@@ -159,29 +171,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="unit",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=47,
-                        line_number=3,
+                        file_offset=59,
+                        line_number=4,
                         column_number=5,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=51,
-                        line_number=3,
-                        column_number=9,
-                    ),
-                ),
-                Token(
-                    type=TokenType.IDENTIFIER,
-                    data="MmpNameInfo",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=52,
-                        line_number=3,
-                        column_number=10,
                     ),
                 ),
                 Token(
@@ -190,7 +182,27 @@ component NormalPostbackInfo as "回传信息规整"
                     source_location=SourceLocation(
                         file_name="<unnamed>",
                         file_offset=63,
-                        line_number=3,
+                        line_number=4,
+                        column_number=9,
+                    ),
+                ),
+                Token(
+                    type=TokenType.IDENTIFIER,
+                    data="MmpNameInfo",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=64,
+                        line_number=4,
+                        column_number=10,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=75,
+                        line_number=4,
                         column_number=21,
                     ),
                 ),
@@ -199,8 +211,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=64,
-                        line_number=3,
+                        file_offset=76,
+                        line_number=4,
                         column_number=22,
                     ),
                 ),
@@ -209,8 +221,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=66,
-                        line_number=3,
+                        file_offset=78,
+                        line_number=4,
                         column_number=24,
                     ),
                 ),
@@ -219,8 +231,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"MMP名信息"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=67,
-                        line_number=3,
+                        file_offset=79,
+                        line_number=4,
                         column_number=25,
                     ),
                 ),
@@ -229,8 +241,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=75,
-                        line_number=3,
+                        file_offset=87,
+                        line_number=4,
                         column_number=33,
                     ),
                 ),
@@ -239,8 +251,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="{",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=80,
-                        line_number=4,
+                        file_offset=92,
+                        line_number=5,
                         column_number=5,
                     ),
                 ),
@@ -249,8 +261,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n        ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=81,
-                        line_number=4,
+                        file_offset=93,
+                        line_number=5,
                         column_number=6,
                     ),
                 ),
@@ -259,8 +271,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="switch",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=90,
-                        line_number=5,
+                        file_offset=102,
+                        line_number=6,
                         column_number=9,
                     ),
                 ),
@@ -269,8 +281,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=96,
-                        line_number=5,
+                        file_offset=108,
+                        line_number=6,
                         column_number=15,
                     ),
                 ),
@@ -279,8 +291,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="get",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=97,
-                        line_number=5,
+                        file_offset=109,
+                        line_number=6,
                         column_number=16,
                     ),
                 ),
@@ -289,8 +301,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=100,
-                        line_number=5,
+                        file_offset=112,
+                        line_number=6,
                         column_number=19,
                     ),
                 ),
@@ -299,8 +311,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"RawPostbackInfo_ThreeType"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=101,
-                        line_number=5,
+                        file_offset=113,
+                        line_number=6,
                         column_number=20,
                     ),
                 ),
@@ -309,8 +321,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=128,
-                        line_number=5,
+                        file_offset=140,
+                        line_number=6,
                         column_number=47,
                     ),
                 ),
@@ -319,39 +331,19 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=129,
-                        line_number=5,
+                        file_offset=141,
+                        line_number=6,
                         column_number=48,
                     ),
                 ),
                 Token(
-                    type=TokenType.OPEN_BRACE,
-                    data="{",
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=130,
-                        line_number=5,
-                        column_number=49,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data="\n        ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=131,
-                        line_number=5,
-                        column_number=50,
-                    ),
-                ),
-                Token(
-                    type=TokenType.CASE_KEYWORD,
-                    data="case",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=140,
+                        file_offset=142,
                         line_number=6,
-                        column_number=9,
+                        column_number=49,
                     ),
                 ),
                 Token(
@@ -361,6 +353,66 @@ component NormalPostbackInfo as "回传信息规整"
                         file_name="<unnamed>",
                         file_offset=144,
                         line_number=6,
+                        column_number=51,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"aaa"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=145,
+                        line_number=6,
+                        column_number=52,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=150,
+                        line_number=6,
+                        column_number=57,
+                    ),
+                ),
+                Token(
+                    type=TokenType.OPEN_BRACE,
+                    data="{",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=151,
+                        line_number=6,
+                        column_number=58,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="\n        ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=152,
+                        line_number=6,
+                        column_number=59,
+                    ),
+                ),
+                Token(
+                    type=TokenType.CASE_KEYWORD,
+                    data="case",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=161,
+                        line_number=7,
+                        column_number=9,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=165,
+                        line_number=7,
                         column_number=13,
                     ),
                 ),
@@ -369,19 +421,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"kochava"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=145,
-                        line_number=6,
+                        file_offset=166,
+                        line_number=7,
                         column_number=14,
-                    ),
-                ),
-                Token(
-                    type=TokenType.COMMA,
-                    data=",",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=154,
-                        line_number=6,
-                        column_number=23,
                     ),
                 ),
                 Token(
@@ -389,9 +431,59 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=155,
-                        line_number=6,
+                        file_offset=175,
+                        line_number=7,
+                        column_number=23,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=176,
+                        line_number=7,
                         column_number=24,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=178,
+                        line_number=7,
+                        column_number=26,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"bbb"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=179,
+                        line_number=7,
+                        column_number=27,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMA,
+                    data=",",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=184,
+                        line_number=7,
+                        column_number=32,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=185,
+                        line_number=7,
+                        column_number=33,
                     ),
                 ),
                 Token(
@@ -399,9 +491,49 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"min_kochava"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=156,
-                        line_number=6,
-                        column_number=25,
+                        file_offset=186,
+                        line_number=7,
+                        column_number=34,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=199,
+                        line_number=7,
+                        column_number=47,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=200,
+                        line_number=7,
+                        column_number=48,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=202,
+                        line_number=7,
+                        column_number=50,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"cccc"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=203,
+                        line_number=7,
+                        column_number=51,
                     ),
                 ),
                 Token(
@@ -409,9 +541,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data=":",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=169,
-                        line_number=6,
-                        column_number=38,
+                        file_offset=209,
+                        line_number=7,
+                        column_number=57,
                     ),
                 ),
                 Token(
@@ -419,9 +551,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n            ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=170,
-                        line_number=6,
-                        column_number=39,
+                        file_offset=210,
+                        line_number=7,
+                        column_number=58,
                     ),
                 ),
                 Token(
@@ -429,8 +561,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="return",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=183,
-                        line_number=7,
+                        file_offset=223,
+                        line_number=8,
                         column_number=13,
                     ),
                 ),
@@ -439,8 +571,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=189,
-                        line_number=7,
+                        file_offset=229,
+                        line_number=8,
                         column_number=19,
                     ),
                 ),
@@ -449,8 +581,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="transform",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=190,
-                        line_number=7,
+                        file_offset=230,
+                        line_number=8,
                         column_number=20,
                     ),
                 ),
@@ -459,8 +591,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=199,
-                        line_number=7,
+                        file_offset=239,
+                        line_number=8,
                         column_number=29,
                     ),
                 ),
@@ -469,8 +601,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="`TODO Kochava`",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=200,
-                        line_number=7,
+                        file_offset=240,
+                        line_number=8,
                         column_number=30,
                     ),
                 ),
@@ -479,8 +611,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=214,
-                        line_number=7,
+                        file_offset=254,
+                        line_number=8,
                         column_number=44,
                     ),
                 ),
@@ -489,8 +621,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=215,
-                        line_number=7,
+                        file_offset=255,
+                        line_number=8,
                         column_number=45,
                     ),
                 ),
@@ -499,8 +631,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=216,
-                        line_number=7,
+                        file_offset=256,
+                        line_number=8,
                         column_number=46,
                     ),
                 ),
@@ -509,8 +641,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=218,
-                        line_number=7,
+                        file_offset=258,
+                        line_number=8,
                         column_number=48,
                     ),
                 ),
@@ -519,19 +651,39 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"Kochava MMP"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=219,
-                        line_number=7,
+                        file_offset=259,
+                        line_number=8,
                         column_number=49,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
-                    data="\n        ",
+                    data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=232,
-                        line_number=7,
+                        file_offset=272,
+                        line_number=8,
                         column_number=62,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMENT,
+                    data="/// comment2\n",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=273,
+                        line_number=8,
+                        column_number=63,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="        ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=285,
+                        line_number=9,
+                        column_number=1,
                     ),
                 ),
                 Token(
@@ -539,8 +691,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="default",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=241,
-                        line_number=8,
+                        file_offset=293,
+                        line_number=9,
                         column_number=9,
                     ),
                 ),
@@ -549,8 +701,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=":",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=248,
-                        line_number=8,
+                        file_offset=300,
+                        line_number=9,
                         column_number=16,
                     ),
                 ),
@@ -559,8 +711,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n            ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=249,
-                        line_number=8,
+                        file_offset=301,
+                        line_number=9,
                         column_number=17,
                     ),
                 ),
@@ -569,8 +721,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="return",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=262,
-                        line_number=9,
+                        file_offset=314,
+                        line_number=10,
                         column_number=13,
                     ),
                 ),
@@ -579,8 +731,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=268,
-                        line_number=9,
+                        file_offset=320,
+                        line_number=10,
                         column_number=19,
                     ),
                 ),
@@ -589,8 +741,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="transform",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=269,
-                        line_number=9,
+                        file_offset=321,
+                        line_number=10,
                         column_number=20,
                     ),
                 ),
@@ -599,8 +751,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=278,
-                        line_number=9,
+                        file_offset=330,
+                        line_number=10,
                         column_number=29,
                     ),
                 ),
@@ -609,8 +761,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="`TODO`",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=279,
-                        line_number=9,
+                        file_offset=331,
+                        line_number=10,
                         column_number=30,
                     ),
                 ),
@@ -619,8 +771,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=285,
-                        line_number=9,
+                        file_offset=337,
+                        line_number=10,
                         column_number=36,
                     ),
                 ),
@@ -629,8 +781,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="+",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=286,
-                        line_number=9,
+                        file_offset=338,
+                        line_number=10,
                         column_number=37,
                     ),
                 ),
@@ -639,8 +791,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=287,
-                        line_number=9,
+                        file_offset=339,
+                        line_number=10,
                         column_number=38,
                     ),
                 ),
@@ -649,8 +801,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='" other"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=288,
-                        line_number=9,
+                        file_offset=340,
+                        line_number=10,
                         column_number=39,
                     ),
                 ),
@@ -659,8 +811,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=296,
-                        line_number=9,
+                        file_offset=348,
+                        line_number=10,
                         column_number=47,
                     ),
                 ),
@@ -669,8 +821,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=297,
-                        line_number=9,
+                        file_offset=349,
+                        line_number=10,
                         column_number=48,
                     ),
                 ),
@@ -679,8 +831,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=298,
-                        line_number=9,
+                        file_offset=350,
+                        line_number=10,
                         column_number=49,
                     ),
                 ),
@@ -689,8 +841,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=300,
-                        line_number=9,
+                        file_offset=352,
+                        line_number=10,
                         column_number=51,
                     ),
                 ),
@@ -699,8 +851,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"其他MMP"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=301,
-                        line_number=9,
+                        file_offset=353,
+                        line_number=10,
                         column_number=52,
                     ),
                 ),
@@ -709,8 +861,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n        ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=308,
-                        line_number=9,
+                        file_offset=360,
+                        line_number=10,
                         column_number=59,
                     ),
                 ),
@@ -719,8 +871,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=317,
-                        line_number=10,
+                        file_offset=369,
+                        line_number=11,
                         column_number=9,
                     ),
                 ),
@@ -729,8 +881,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=318,
-                        line_number=10,
+                        file_offset=370,
+                        line_number=11,
                         column_number=10,
                     ),
                 ),
@@ -739,8 +891,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=323,
-                        line_number=11,
+                        file_offset=375,
+                        line_number=12,
                         column_number=5,
                     ),
                 ),
@@ -749,8 +901,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=324,
-                        line_number=11,
+                        file_offset=376,
+                        line_number=12,
                         column_number=6,
                     ),
                 ),
@@ -759,8 +911,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="unit",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=330,
-                        line_number=13,
+                        file_offset=382,
+                        line_number=14,
                         column_number=5,
                     ),
                 ),
@@ -769,8 +921,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=334,
-                        line_number=13,
+                        file_offset=386,
+                        line_number=14,
                         column_number=9,
                     ),
                 ),
@@ -779,8 +931,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="AttributeTypeInfo",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=335,
-                        line_number=13,
+                        file_offset=387,
+                        line_number=14,
                         column_number=10,
                     ),
                 ),
@@ -789,8 +941,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=352,
-                        line_number=13,
+                        file_offset=404,
+                        line_number=14,
                         column_number=27,
                     ),
                 ),
@@ -799,8 +951,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=353,
-                        line_number=13,
+                        file_offset=405,
+                        line_number=14,
                         column_number=28,
                     ),
                 ),
@@ -809,8 +961,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=355,
-                        line_number=13,
+                        file_offset=407,
+                        line_number=14,
                         column_number=30,
                     ),
                 ),
@@ -819,8 +971,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"归因类型信息"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=356,
-                        line_number=13,
+                        file_offset=408,
+                        line_number=14,
                         column_number=31,
                     ),
                 ),
@@ -829,8 +981,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=364,
-                        line_number=13,
+                        file_offset=416,
+                        line_number=14,
                         column_number=39,
                     ),
                 ),
@@ -839,8 +991,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="{",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=369,
-                        line_number=14,
+                        file_offset=421,
+                        line_number=15,
                         column_number=5,
                     ),
                 ),
@@ -849,8 +1001,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n        ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=370,
-                        line_number=14,
+                        file_offset=422,
+                        line_number=15,
                         column_number=6,
                     ),
                 ),
@@ -859,8 +1011,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="if",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=379,
-                        line_number=15,
+                        file_offset=431,
+                        line_number=16,
                         column_number=9,
                     ),
                 ),
@@ -869,8 +1021,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=381,
-                        line_number=15,
+                        file_offset=433,
+                        line_number=16,
                         column_number=11,
                     ),
                 ),
@@ -879,8 +1031,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="test",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=382,
-                        line_number=15,
+                        file_offset=434,
+                        line_number=16,
                         column_number=12,
                     ),
                 ),
@@ -889,8 +1041,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=386,
-                        line_number=15,
+                        file_offset=438,
+                        line_number=16,
                         column_number=16,
                     ),
                 ),
@@ -899,8 +1051,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"NormalPostbackInfo_MmpNameInfo_Value"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=387,
-                        line_number=15,
+                        file_offset=439,
+                        line_number=16,
                         column_number=17,
                     ),
                 ),
@@ -909,8 +1061,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=",",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=425,
-                        line_number=15,
+                        file_offset=477,
+                        line_number=16,
                         column_number=55,
                     ),
                 ),
@@ -919,8 +1071,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=426,
-                        line_number=15,
+                        file_offset=478,
+                        line_number=16,
                         column_number=56,
                     ),
                 ),
@@ -929,8 +1081,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"eq"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=427,
-                        line_number=15,
+                        file_offset=479,
+                        line_number=16,
                         column_number=57,
                     ),
                 ),
@@ -939,8 +1091,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=",",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=431,
-                        line_number=15,
+                        file_offset=483,
+                        line_number=16,
                         column_number=61,
                     ),
                 ),
@@ -949,8 +1101,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=432,
-                        line_number=15,
+                        file_offset=484,
+                        line_number=16,
                         column_number=62,
                     ),
                 ),
@@ -959,8 +1111,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"Kochava"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=433,
-                        line_number=15,
+                        file_offset=485,
+                        line_number=16,
                         column_number=63,
                     ),
                 ),
@@ -969,8 +1121,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=442,
-                        line_number=15,
+                        file_offset=494,
+                        line_number=16,
                         column_number=72,
                     ),
                 ),
@@ -979,9 +1131,49 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=443,
-                        line_number=15,
+                        file_offset=495,
+                        line_number=16,
                         column_number=73,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=496,
+                        line_number=16,
+                        column_number=74,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=498,
+                        line_number=16,
+                        column_number=76,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"aaa"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=499,
+                        line_number=16,
+                        column_number=77,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=504,
+                        line_number=16,
+                        column_number=82,
                     ),
                 ),
                 Token(
@@ -989,9 +1181,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="{",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=444,
-                        line_number=15,
-                        column_number=74,
+                        file_offset=505,
+                        line_number=16,
+                        column_number=83,
                     ),
                 ),
                 Token(
@@ -999,9 +1191,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n\n            ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=445,
-                        line_number=15,
-                        column_number=75,
+                        file_offset=506,
+                        line_number=16,
+                        column_number=84,
                     ),
                 ),
                 Token(
@@ -1009,8 +1201,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="if",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=459,
-                        line_number=17,
+                        file_offset=520,
+                        line_number=18,
                         column_number=13,
                     ),
                 ),
@@ -1019,8 +1211,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=461,
-                        line_number=17,
+                        file_offset=522,
+                        line_number=18,
                         column_number=15,
                     ),
                 ),
@@ -1029,8 +1221,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="test",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=462,
-                        line_number=17,
+                        file_offset=523,
+                        line_number=18,
                         column_number=16,
                     ),
                 ),
@@ -1039,8 +1231,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=466,
-                        line_number=17,
+                        file_offset=527,
+                        line_number=18,
                         column_number=20,
                     ),
                 ),
@@ -1049,8 +1241,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"RawPostbackInfo_HasAttribuType"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=467,
-                        line_number=17,
+                        file_offset=528,
+                        line_number=18,
                         column_number=21,
                     ),
                 ),
@@ -1059,8 +1251,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=",",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=499,
-                        line_number=17,
+                        file_offset=560,
+                        line_number=18,
                         column_number=53,
                     ),
                 ),
@@ -1069,8 +1261,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=500,
-                        line_number=17,
+                        file_offset=561,
+                        line_number=18,
                         column_number=54,
                     ),
                 ),
@@ -1079,8 +1271,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"eq"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=501,
-                        line_number=17,
+                        file_offset=562,
+                        line_number=18,
                         column_number=55,
                     ),
                 ),
@@ -1089,8 +1281,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=",",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=505,
-                        line_number=17,
+                        file_offset=566,
+                        line_number=18,
                         column_number=59,
                     ),
                 ),
@@ -1099,8 +1291,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=506,
-                        line_number=17,
+                        file_offset=567,
+                        line_number=18,
                         column_number=60,
                     ),
                 ),
@@ -1109,8 +1301,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"true"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=507,
-                        line_number=17,
+                        file_offset=568,
+                        line_number=18,
                         column_number=61,
                     ),
                 ),
@@ -1119,139 +1311,29 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=513,
-                        line_number=17,
+                        file_offset=574,
+                        line_number=18,
                         column_number=67,
                     ),
                 ),
                 Token(
                     type=TokenType.WHITESPACE,
-                    data="\n               ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=514,
-                        line_number=17,
-                        column_number=68,
-                    ),
-                ),
-                Token(
-                    type=TokenType.LOGICAL_AND,
-                    data="&&",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=530,
-                        line_number=18,
-                        column_number=16,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
                     data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=532,
-                        line_number=18,
-                        column_number=18,
-                    ),
-                ),
-                Token(
-                    type=TokenType.TEST_KEYWORD,
-                    data="test",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=533,
-                        line_number=18,
-                        column_number=19,
-                    ),
-                ),
-                Token(
-                    type=TokenType.OPEN_PAREN,
-                    data="(",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=537,
-                        line_number=18,
-                        column_number=23,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='"RawPostbackInfo_AttribuType"',
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=538,
-                        line_number=18,
-                        column_number=24,
-                    ),
-                ),
-                Token(
-                    type=TokenType.COMMA,
-                    data=",",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=567,
-                        line_number=18,
-                        column_number=53,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=568,
-                        line_number=18,
-                        column_number=54,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='"eq"',
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=569,
-                        line_number=18,
-                        column_number=55,
-                    ),
-                ),
-                Token(
-                    type=TokenType.COMMA,
-                    data=",",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=573,
-                        line_number=18,
-                        column_number=59,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=574,
-                        line_number=18,
-                        column_number=60,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='""',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
                         file_offset=575,
                         line_number=18,
-                        column_number=61,
+                        column_number=68,
                     ),
                 ),
                 Token(
-                    type=TokenType.CLOSE_PAREN,
-                    data=")",
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=577,
+                        file_offset=576,
                         line_number=18,
-                        column_number=63,
+                        column_number=69,
                     ),
                 ),
                 Token(
@@ -1261,7 +1343,197 @@ component NormalPostbackInfo as "回传信息规整"
                         file_name="<unnamed>",
                         file_offset=578,
                         line_number=18,
+                        column_number=71,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"ccc"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=579,
+                        line_number=18,
+                        column_number=72,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="\n               ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=584,
+                        line_number=18,
+                        column_number=77,
+                    ),
+                ),
+                Token(
+                    type=TokenType.LOGICAL_AND,
+                    data="&&",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=600,
+                        line_number=19,
+                        column_number=16,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=602,
+                        line_number=19,
+                        column_number=18,
+                    ),
+                ),
+                Token(
+                    type=TokenType.TEST_KEYWORD,
+                    data="test",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=603,
+                        line_number=19,
+                        column_number=19,
+                    ),
+                ),
+                Token(
+                    type=TokenType.OPEN_PAREN,
+                    data="(",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=607,
+                        line_number=19,
+                        column_number=23,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"RawPostbackInfo_AttribuType"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=608,
+                        line_number=19,
+                        column_number=24,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMA,
+                    data=",",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=637,
+                        line_number=19,
+                        column_number=53,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=638,
+                        line_number=19,
+                        column_number=54,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"eq"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=639,
+                        line_number=19,
+                        column_number=55,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMA,
+                    data=",",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=643,
+                        line_number=19,
+                        column_number=59,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=644,
+                        line_number=19,
+                        column_number=60,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='""',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=645,
+                        line_number=19,
+                        column_number=61,
+                    ),
+                ),
+                Token(
+                    type=TokenType.CLOSE_PAREN,
+                    data=")",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=647,
+                        line_number=19,
+                        column_number=63,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=648,
+                        line_number=19,
                         column_number=64,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=649,
+                        line_number=19,
+                        column_number=65,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=651,
+                        line_number=19,
+                        column_number=67,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"ddd"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=652,
+                        line_number=19,
+                        column_number=68,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=657,
+                        line_number=19,
+                        column_number=73,
                     ),
                 ),
                 Token(
@@ -1269,9 +1541,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="{",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=579,
-                        line_number=18,
-                        column_number=65,
+                        file_offset=658,
+                        line_number=19,
+                        column_number=74,
                     ),
                 ),
                 Token(
@@ -1279,9 +1551,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n\n                ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=580,
-                        line_number=18,
-                        column_number=66,
+                        file_offset=659,
+                        line_number=19,
+                        column_number=75,
                     ),
                 ),
                 Token(
@@ -1289,8 +1561,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="return",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=598,
-                        line_number=20,
+                        file_offset=677,
+                        line_number=21,
                         column_number=17,
                     ),
                 ),
@@ -1299,8 +1571,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=604,
-                        line_number=20,
+                        file_offset=683,
+                        line_number=21,
                         column_number=23,
                     ),
                 ),
@@ -1309,8 +1581,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="transform",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=605,
-                        line_number=20,
+                        file_offset=684,
+                        line_number=21,
                         column_number=24,
                     ),
                 ),
@@ -1319,8 +1591,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=614,
-                        line_number=20,
+                        file_offset=693,
+                        line_number=21,
                         column_number=33,
                     ),
                 ),
@@ -1329,8 +1601,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="`TODO 0`",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=615,
-                        line_number=20,
+                        file_offset=694,
+                        line_number=21,
                         column_number=34,
                     ),
                 ),
@@ -1339,8 +1611,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=623,
-                        line_number=20,
+                        file_offset=702,
+                        line_number=21,
                         column_number=42,
                     ),
                 ),
@@ -1349,8 +1621,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=624,
-                        line_number=20,
+                        file_offset=703,
+                        line_number=21,
                         column_number=43,
                     ),
                 ),
@@ -1359,8 +1631,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=625,
-                        line_number=20,
+                        file_offset=704,
+                        line_number=21,
                         column_number=44,
                     ),
                 ),
@@ -1369,8 +1641,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=627,
-                        line_number=20,
+                        file_offset=706,
+                        line_number=21,
                         column_number=46,
                     ),
                 ),
@@ -1379,8 +1651,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"非mtg归因 - kochava"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=628,
-                        line_number=20,
+                        file_offset=707,
+                        line_number=21,
                         column_number=47,
                     ),
                 ),
@@ -1389,8 +1661,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n            ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=646,
-                        line_number=20,
+                        file_offset=725,
+                        line_number=21,
                         column_number=65,
                     ),
                 ),
@@ -1399,8 +1671,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=659,
-                        line_number=21,
+                        file_offset=738,
+                        line_number=22,
                         column_number=13,
                     ),
                 ),
@@ -1409,8 +1681,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n        ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=660,
-                        line_number=21,
+                        file_offset=739,
+                        line_number=22,
                         column_number=14,
                     ),
                 ),
@@ -1419,8 +1691,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=669,
-                        line_number=22,
+                        file_offset=748,
+                        line_number=23,
                         column_number=9,
                     ),
                 ),
@@ -1429,9 +1701,29 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n\n        ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=670,
-                        line_number=22,
+                        file_offset=749,
+                        line_number=23,
                         column_number=10,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMENT,
+                    data="/// comment3\n",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=759,
+                        line_number=25,
+                        column_number=9,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="        ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=771,
+                        line_number=26,
+                        column_number=1,
                     ),
                 ),
                 Token(
@@ -1439,8 +1731,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="if",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=680,
-                        line_number=24,
+                        file_offset=779,
+                        line_number=26,
                         column_number=9,
                     ),
                 ),
@@ -1449,8 +1741,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=682,
-                        line_number=24,
+                        file_offset=781,
+                        line_number=26,
                         column_number=11,
                     ),
                 ),
@@ -1459,8 +1751,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="test",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=683,
-                        line_number=24,
+                        file_offset=782,
+                        line_number=26,
                         column_number=12,
                     ),
                 ),
@@ -1469,8 +1761,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=687,
-                        line_number=24,
+                        file_offset=786,
+                        line_number=26,
                         column_number=16,
                     ),
                 ),
@@ -1479,8 +1771,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"RawPostbackInfo_AttribuType"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=688,
-                        line_number=24,
+                        file_offset=787,
+                        line_number=26,
                         column_number=17,
                     ),
                 ),
@@ -1489,239 +1781,9 @@ component NormalPostbackInfo as "回传信息规整"
                     data=",",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=717,
-                        line_number=24,
-                        column_number=46,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=718,
-                        line_number=24,
-                        column_number=47,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='"eq"',
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=719,
-                        line_number=24,
-                        column_number=48,
-                    ),
-                ),
-                Token(
-                    type=TokenType.COMMA,
-                    data=",",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=723,
-                        line_number=24,
-                        column_number=52,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=724,
-                        line_number=24,
-                        column_number=53,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='"0"',
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=725,
-                        line_number=24,
-                        column_number=54,
-                    ),
-                ),
-                Token(
-                    type=TokenType.CLOSE_PAREN,
-                    data=")",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=728,
-                        line_number=24,
-                        column_number=57,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=729,
-                        line_number=24,
-                        column_number=58,
-                    ),
-                ),
-                Token(
-                    type=TokenType.OPEN_BRACE,
-                    data="{",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=730,
-                        line_number=24,
-                        column_number=59,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data="\n                ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=731,
-                        line_number=24,
-                        column_number=60,
-                    ),
-                ),
-                Token(
-                    type=TokenType.RETURN_KEYWORD,
-                    data="return",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=748,
-                        line_number=25,
-                        column_number=17,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=754,
-                        line_number=25,
-                        column_number=23,
-                    ),
-                ),
-                Token(
-                    type=TokenType.TRANSFORM_KEYWORD,
-                    data="transform",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=755,
-                        line_number=25,
-                        column_number=24,
-                    ),
-                ),
-                Token(
-                    type=TokenType.OPEN_PAREN,
-                    data="(",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=764,
-                        line_number=25,
-                        column_number=33,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data="`TODO 0`",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=765,
-                        line_number=25,
-                        column_number=34,
-                    ),
-                ),
-                Token(
-                    type=TokenType.CLOSE_PAREN,
-                    data=")",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=773,
-                        line_number=25,
-                        column_number=42,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=774,
-                        line_number=25,
-                        column_number=43,
-                    ),
-                ),
-                Token(
-                    type=TokenType.AS_KEYWORD,
-                    data="as",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=775,
-                        line_number=25,
-                        column_number=44,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data=" ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=777,
-                        line_number=25,
-                        column_number=46,
-                    ),
-                ),
-                Token(
-                    type=TokenType.STRING_LITERAL,
-                    data='"非mtg归因 - 其他"',
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=778,
-                        line_number=25,
-                        column_number=47,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data="\n        ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=791,
-                        line_number=25,
-                        column_number=60,
-                    ),
-                ),
-                Token(
-                    type=TokenType.CLOSE_BRACE,
-                    data="}",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=800,
+                        file_offset=816,
                         line_number=26,
-                        column_number=9,
-                    ),
-                ),
-                Token(
-                    type=TokenType.WHITESPACE,
-                    data="\n\n        ",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=801,
-                        line_number=26,
-                        column_number=10,
-                    ),
-                ),
-                Token(
-                    type=TokenType.RETURN_KEYWORD,
-                    data="return",
-                    source_location=SourceLocation(
-                        file_name="<unnamed>",
-                        file_offset=811,
-                        line_number=28,
-                        column_number=9,
+                        column_number=46,
                     ),
                 ),
                 Token(
@@ -1730,7 +1792,277 @@ component NormalPostbackInfo as "回传信息规整"
                     source_location=SourceLocation(
                         file_name="<unnamed>",
                         file_offset=817,
+                        line_number=26,
+                        column_number=47,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"eq"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=818,
+                        line_number=26,
+                        column_number=48,
+                    ),
+                ),
+                Token(
+                    type=TokenType.COMMA,
+                    data=",",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=822,
+                        line_number=26,
+                        column_number=52,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=823,
+                        line_number=26,
+                        column_number=53,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"0"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=824,
+                        line_number=26,
+                        column_number=54,
+                    ),
+                ),
+                Token(
+                    type=TokenType.CLOSE_PAREN,
+                    data=")",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=827,
+                        line_number=26,
+                        column_number=57,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=828,
+                        line_number=26,
+                        column_number=58,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=829,
+                        line_number=26,
+                        column_number=59,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=831,
+                        line_number=26,
+                        column_number=61,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"eeee"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=832,
+                        line_number=26,
+                        column_number=62,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=838,
+                        line_number=26,
+                        column_number=68,
+                    ),
+                ),
+                Token(
+                    type=TokenType.OPEN_BRACE,
+                    data="{",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=839,
+                        line_number=26,
+                        column_number=69,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="\n                ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=840,
+                        line_number=26,
+                        column_number=70,
+                    ),
+                ),
+                Token(
+                    type=TokenType.RETURN_KEYWORD,
+                    data="return",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=857,
+                        line_number=27,
+                        column_number=17,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=863,
+                        line_number=27,
+                        column_number=23,
+                    ),
+                ),
+                Token(
+                    type=TokenType.TRANSFORM_KEYWORD,
+                    data="transform",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=864,
+                        line_number=27,
+                        column_number=24,
+                    ),
+                ),
+                Token(
+                    type=TokenType.OPEN_PAREN,
+                    data="(",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=873,
+                        line_number=27,
+                        column_number=33,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data="`TODO 0`",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=874,
+                        line_number=27,
+                        column_number=34,
+                    ),
+                ),
+                Token(
+                    type=TokenType.CLOSE_PAREN,
+                    data=")",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=882,
+                        line_number=27,
+                        column_number=42,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=883,
+                        line_number=27,
+                        column_number=43,
+                    ),
+                ),
+                Token(
+                    type=TokenType.AS_KEYWORD,
+                    data="as",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=884,
+                        line_number=27,
+                        column_number=44,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=886,
+                        line_number=27,
+                        column_number=46,
+                    ),
+                ),
+                Token(
+                    type=TokenType.STRING_LITERAL,
+                    data='"非mtg归因 - 其他"',
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=887,
+                        line_number=27,
+                        column_number=47,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="\n        ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=900,
+                        line_number=27,
+                        column_number=60,
+                    ),
+                ),
+                Token(
+                    type=TokenType.CLOSE_BRACE,
+                    data="}",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=909,
                         line_number=28,
+                        column_number=9,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data="\n\n        ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=910,
+                        line_number=28,
+                        column_number=10,
+                    ),
+                ),
+                Token(
+                    type=TokenType.RETURN_KEYWORD,
+                    data="return",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=920,
+                        line_number=30,
+                        column_number=9,
+                    ),
+                ),
+                Token(
+                    type=TokenType.WHITESPACE,
+                    data=" ",
+                    source_location=SourceLocation(
+                        file_name="<unnamed>",
+                        file_offset=926,
+                        line_number=30,
                         column_number=15,
                     ),
                 ),
@@ -1739,8 +2071,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="transform",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=818,
-                        line_number=28,
+                        file_offset=927,
+                        line_number=30,
                         column_number=16,
                     ),
                 ),
@@ -1749,8 +2081,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="(",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=827,
-                        line_number=28,
+                        file_offset=936,
+                        line_number=30,
                         column_number=25,
                     ),
                 ),
@@ -1759,8 +2091,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="`TODO 1`",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=828,
-                        line_number=28,
+                        file_offset=937,
+                        line_number=30,
                         column_number=26,
                     ),
                 ),
@@ -1769,8 +2101,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=")",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=836,
-                        line_number=28,
+                        file_offset=945,
+                        line_number=30,
                         column_number=34,
                     ),
                 ),
@@ -1779,8 +2111,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=837,
-                        line_number=28,
+                        file_offset=946,
+                        line_number=30,
                         column_number=35,
                     ),
                 ),
@@ -1789,8 +2121,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="as",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=838,
-                        line_number=28,
+                        file_offset=947,
+                        line_number=30,
                         column_number=36,
                     ),
                 ),
@@ -1799,8 +2131,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data=" ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=840,
-                        line_number=28,
+                        file_offset=949,
+                        line_number=30,
                         column_number=38,
                     ),
                 ),
@@ -1809,8 +2141,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data='"mtg归因"',
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=841,
-                        line_number=28,
+                        file_offset=950,
+                        line_number=30,
                         column_number=39,
                     ),
                 ),
@@ -1819,8 +2151,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n    ",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=848,
-                        line_number=28,
+                        file_offset=957,
+                        line_number=30,
                         column_number=46,
                     ),
                 ),
@@ -1829,8 +2161,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=853,
-                        line_number=29,
+                        file_offset=962,
+                        line_number=31,
                         column_number=5,
                     ),
                 ),
@@ -1839,8 +2171,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=854,
-                        line_number=29,
+                        file_offset=963,
+                        line_number=31,
                         column_number=6,
                     ),
                 ),
@@ -1849,8 +2181,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="}",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=855,
-                        line_number=30,
+                        file_offset=964,
+                        line_number=32,
                         column_number=1,
                     ),
                 ),
@@ -1859,8 +2191,8 @@ component NormalPostbackInfo as "回传信息规整"
                     data="\n",
                     source_location=SourceLocation(
                         file_name="<unnamed>",
-                        file_offset=856,
-                        line_number=30,
+                        file_offset=965,
+                        line_number=32,
                         column_number=2,
                     ),
                 ),

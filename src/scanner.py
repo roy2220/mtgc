@@ -15,6 +15,7 @@ class TokenType(enum.IntEnum):
     NONE = 0
 
     WHITESPACE = enum.auto()
+    COMMENT = enum.auto()  # //...
     OPEN_PAREN = enum.auto()  # (
     CLOSE_PAREN = enum.auto()  # )
     OPEN_BRACE = enum.auto()  # {
@@ -53,6 +54,7 @@ _token_type_2_str: dict[TokenType, str] = {
     TokenType.NONE: "<none>",
     # ----------
     TokenType.WHITESPACE: "<whitespace>",
+    TokenType.COMMENT: "<comment>",
     TokenType.OPEN_PAREN: "`(`",
     TokenType.CLOSE_PAREN: "`)`",
     TokenType.OPEN_BRACE: "`{`",
@@ -175,6 +177,15 @@ class Scanner:
                         self._discard_chars(1)
                         return Token(TokenType.LOGICAL_OR, "||", source_location)
 
+                elif c == "/":
+                    c2 = self._peek_char(1)
+                    if c2 == "/":
+                        return Token(
+                            TokenType.COMMENT,
+                            self._get_comment([c, c2]),
+                            source_location,
+                        )
+
                 elif c in _first_identifier_letters:
                     token_data, token_type = self._get_identifier_or_keyword([c])
                     if token_type is not TokenType.NONE:
@@ -276,6 +287,13 @@ class Scanner:
 
             self._discard_chars(1)
             chars.append(c)
+
+    def _get_comment(self, chars: list[str]) -> str:
+        while True:
+            c = self._get_char()
+            chars.append(c)
+            if c == "\n":
+                return "".join(chars)
 
 
 _dummy_char = chr(0)

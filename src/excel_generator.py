@@ -6,7 +6,7 @@ import uuid
 from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Format
 
-from .analyzer import Component, ReturnPoint, TestExpr, Unit
+from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
 
 
 class ExcelGenerator:
@@ -60,7 +60,7 @@ class ExcelGenerator:
                 "border": True,
                 "text_wrap": True,
                 "valign": "vcenter",
-                "bg_color": "#FEFF54",
+                "bg_color": "#F2F2F2",
             }
         )
         self._when_hdr_fmt = self._workbook.add_format(
@@ -69,7 +69,6 @@ class ExcelGenerator:
                 "bold": True,
                 "align": "center",
                 "valign": "vcenter",
-                "bg_color": "#F3C343",
             }
         )
         self._then_hdr_fmt = self._workbook.add_format(
@@ -78,7 +77,6 @@ class ExcelGenerator:
                 "bold": True,
                 "align": "center",
                 "valign": "vcenter",
-                "bg_color": "#9FCE62",
             }
         )
         self._input_hdr_fmt = self._workbook.add_format(
@@ -88,7 +86,7 @@ class ExcelGenerator:
                 "text_wrap": True,
                 "align": "center",
                 "valign": "vcenter",
-                "bg_color": "#FEFF54",
+                "bg_color": "#DCE6F1",
             }
         )
         self._output_hdr_fmt = self._workbook.add_format(
@@ -98,11 +96,11 @@ class ExcelGenerator:
                 "text_wrap": True,
                 "align": "center",
                 "valign": "vcenter",
-                "bg_color": "#FEFF54",
+                "bg_color": "#EBF1DE",
             }
         )
         self._default_fmt = self._workbook.add_format()
-        self._highlight_fmt = self._workbook.add_format({"font_color": "red"})
+        self._highlight_fmt = self._workbook.add_format({"font_color": "#E46C0A"})
 
     def _dump_component(self, component: Component) -> None:
         self._row_index = 0
@@ -126,7 +124,7 @@ class ExcelGenerator:
                     "Business Unit",
                     self._business_unit_hdr_fmt,
                 )
-                self._worksheet.set_column(self._row_index, column_index, 30)
+                self._worksheet.set_column(self._row_index, column_index, 40)
             column_index += 1
 
             # Business Scenario
@@ -139,7 +137,7 @@ class ExcelGenerator:
                     "Business Scenario",
                     self._business_scenario_hdr_fmt,
                 )
-                self._worksheet.set_column(self._row_index, column_index, 30)
+                self._worksheet.set_column(self._row_index, column_index, 60)
             column_index += 1
 
             for j, input in enumerate(inputs):
@@ -234,17 +232,21 @@ class ExcelGenerator:
         for i, and_expr in enumerate(and_exprs):
             column_index = 1
 
+            # Business Scenario
             if i == len(and_exprs) - 1:
                 self._merge_range(
                     first_row_index,
                     column_index,
                     self._row_index,
                     column_index,
-                    return_point.transform_scenario,
+                    self._make_business_scenario_text(
+                        and_exprs, return_point.transform_annotation
+                    ),
                     self._business_scenario_cell_fmt,
                 )
             column_index += 1
 
+            # When
             for input in inputs:
                 lines = []
                 for test_expr in and_expr.test_exprs:
@@ -260,6 +262,7 @@ class ExcelGenerator:
                 )
                 column_index += 1
 
+            # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
                     lines = []
@@ -279,6 +282,28 @@ class ExcelGenerator:
                 column_index += 1
 
             self._row_index += 1
+
+    def _make_business_scenario_text(
+        self, and_exprs: list[AndExpr], transform_annotation: str
+    ) -> str:
+        lines = [transform_annotation]
+
+        for and_expr in and_exprs:
+            tags: list[str] = []
+            for test_expr in and_expr.test_exprs:
+                if test_expr.is_positive:
+                    tag = "✅ " + test_expr.fact
+                else:
+                    tag = "❌ " + test_expr.fact
+                tags.append(tag)
+
+            if len(and_exprs) == 1:
+                line = f" " + "; ".join(tags)
+            else:
+                line = f" {len(lines)}. " + "; ".join(tags)
+            lines.append(line)
+
+        return "\n".join(lines)
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
         values = test_expr.values.copy()

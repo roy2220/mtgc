@@ -32,7 +32,7 @@ type Statement = "ReturnStatement | IfStatement | SwitchStatement"
 class ReturnStatement:
     source_location: SourceLocation
     transform: dict
-    transform_scenario: str
+    transform_annotation: str
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_return_statement(self)
@@ -82,7 +82,7 @@ class SwitchStatement:
 @dataclass
 class CaseClause:
     source_location: SourceLocation
-    values: list[str]
+    values_and_facts: list[tuple[str, str]]
     then: list[Statement]
 
     # for analysis
@@ -109,6 +109,7 @@ class TestCondiction:
     op: str
     values: list[str]
     underlying_values: list[str]
+    fact: str
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_test_condiction(self)
@@ -204,7 +205,7 @@ class Parser:
     def _do_get_token(self) -> Token:
         while True:
             t = self._scanner.get_token()
-            if t.type != TokenType.WHITESPACE:
+            if t.type not in (TokenType.WHITESPACE, TokenType.COMMENT):
                 return t
 
     def _peek_token(self, pos: int) -> Token:
@@ -298,8 +299,8 @@ class Parser:
         transform = self._get_transform()
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
-        transform_scenario = self._get_string()
-        return ReturnStatement(source_location, transform, transform_scenario)
+        transform_annotation = self._get_string()
+        return ReturnStatement(source_location, transform, transform_annotation)
 
     def _get_transform(self) -> dict:
         transform_literal, source_location = self._get_string_with_source_location()
@@ -389,10 +390,13 @@ class Parser:
         source_location = self._get_expected_token(
             TokenType.CASE_KEYWORD
         ).source_location
-        values: list[str] = []
+        values_and_facts: list[tuple[str, str]] = []
 
         while True:
-            values.append(self._get_string())
+            value = self._get_string()
+            self._get_expected_token(TokenType.AS_KEYWORD)
+            fact = self._get_string()
+            values_and_facts.append((value, fact))
 
             if self._peek_token(1).type != TokenType.COMMA:
                 break
@@ -402,7 +406,7 @@ class Parser:
         self._get_expected_token(TokenType.COLON)
 
         then = self._get_statements()
-        return CaseClause(source_location, values, then)
+        return CaseClause(source_location, values_and_facts, then)
 
     def _get_if_statement(self) -> IfStatement:
         source_location = self._get_expected_token(TokenType.IF_KEYWORD).source_location
@@ -523,8 +527,11 @@ class Parser:
                 underlying_values.append(str(key_index))
 
         self._get_expected_token(TokenType.CLOSE_PAREN)
+        self._get_expected_token(TokenType.AS_KEYWORD)
+        fact = self._get_string()
+
         return TestCondiction(
-            source_location, key, key_index, op, values, underlying_values
+            source_location, key, key_index, op, values, underlying_values, fact
         )
 
     def _get_identifier(self) -> str:
