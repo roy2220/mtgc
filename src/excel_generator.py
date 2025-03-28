@@ -13,11 +13,11 @@ class ExcelGenerator:
     __slots__ = (
         "_components",
         "_output_file_name",
-        "_hilight_begin_mark",
-        "_hilight_mark",
+        "_color_mark",
         "_workbook",
         "_cell_fmt",
         "_business_unit_hdr_fmt",
+        "_business_unit_cell_fmt",
         "_business_scenario_hdr_fmt",
         "_business_scenario_cell_fmt",
         "_when_hdr_fmt",
@@ -26,6 +26,7 @@ class ExcelGenerator:
         "_output_hdr_fmt",
         "_default_fmt",
         "_highlight_fmt",
+        "_conceal_fmt",
         "_worksheet",
         "_row_index",
     )
@@ -33,7 +34,7 @@ class ExcelGenerator:
     def __init__(self, components: list[Component], output_file_name: str) -> None:
         self._components = components
         self._output_file_name = output_file_name
-        self._hilight_mark = "hl:" + uuid.uuid4().hex
+        self._color_mark = uuid.uuid4().hex
 
     def dump_components(self) -> None:
         self._workbook = Workbook(self._output_file_name)
@@ -47,60 +48,106 @@ class ExcelGenerator:
 
     def _set_formats(self) -> None:
         self._cell_fmt = self._workbook.add_format(
-            {"border": True, "text_wrap": True, "valign": "vcenter"}
+            {
+                "border": True,
+                "font_size": 11,
+                "text_wrap": True,
+                "valign": "vcenter",
+            }
         )
         self._business_unit_hdr_fmt = self._workbook.add_format(
-            {"border": True, "bold": True, "align": "center", "valign": "vcenter"}
+            {
+                "align": "center",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
+                "valign": "vcenter",
+            }
+        )
+        self._business_unit_cell_fmt = self._workbook.add_format(
+            {
+                "align": "center",
+                "border": True,
+                "font_size": 11,
+                "text_wrap": True,
+                "valign": "vcenter",
+            }
         )
         self._business_scenario_hdr_fmt = self._workbook.add_format(
-            {"border": True, "bold": True, "align": "center", "valign": "vcenter"}
+            {
+                "align": "center",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
+                "valign": "vcenter",
+            }
         )
         self._business_scenario_cell_fmt = self._workbook.add_format(
             {
+                "bg_color": "#F2F2F2",
                 "border": True,
+                "font_size": 11,
                 "text_wrap": True,
                 "valign": "vcenter",
-                "bg_color": "#F2F2F2",
             }
         )
         self._when_hdr_fmt = self._workbook.add_format(
             {
-                "border": True,
-                "bold": True,
                 "align": "center",
+                "bg_color": "#DCE6F1",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
                 "valign": "vcenter",
             }
         )
         self._then_hdr_fmt = self._workbook.add_format(
             {
-                "border": True,
-                "bold": True,
                 "align": "center",
+                "bg_color": "#EBF1DE",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
                 "valign": "vcenter",
             }
         )
         self._input_hdr_fmt = self._workbook.add_format(
             {
-                "border": True,
-                "bold": True,
-                "text_wrap": True,
                 "align": "center",
-                "valign": "vcenter",
                 "bg_color": "#DCE6F1",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
+                "text_wrap": True,
+                "valign": "vcenter",
             }
         )
         self._output_hdr_fmt = self._workbook.add_format(
             {
-                "border": True,
-                "bold": True,
-                "text_wrap": True,
                 "align": "center",
-                "valign": "vcenter",
                 "bg_color": "#EBF1DE",
+                "bold": True,
+                "border": True,
+                "font_size": 11,
+                "text_wrap": True,
+                "valign": "vcenter",
             }
         )
         self._default_fmt = self._workbook.add_format()
-        self._highlight_fmt = self._workbook.add_format({"font_color": "#E46C0A"})
+        self._highlight_fmt = self._workbook.add_format(
+            {
+                "bold": True,
+                "font_color": "#E46C0A",
+                "font_size": 11,
+            }
+        )
+        self._conceal_fmt = self._workbook.add_format(
+            {
+                "font_color": "#808080",
+                "font_size": 11,
+                "italic": True,
+            }
+        )
 
     def _dump_component(self, component: Component) -> None:
         self._row_index = 0
@@ -124,7 +171,7 @@ class ExcelGenerator:
                     "Business Unit",
                     self._business_unit_hdr_fmt,
                 )
-                self._worksheet.set_column(self._row_index, column_index, 40)
+                self._worksheet.set_column(self._row_index, column_index, 50)
             column_index += 1
 
             # Business Scenario
@@ -137,7 +184,7 @@ class ExcelGenerator:
                     "Business Scenario",
                     self._business_scenario_hdr_fmt,
                 )
-                self._worksheet.set_column(self._row_index, column_index, 60)
+                self._worksheet.set_column(self._row_index, column_index, 70)
             column_index += 1
 
             for j, input in enumerate(inputs):
@@ -195,8 +242,8 @@ class ExcelGenerator:
             0,
             self._row_index - 1,
             0,
-            unit.alias,
-            self._cell_fmt,
+            f"{unit.name}\n({self._conceal_text(unit.alias)})",
+            self._business_unit_cell_fmt,
         )
 
         self._row_index += 1
@@ -248,16 +295,16 @@ class ExcelGenerator:
 
             # When
             for input in inputs:
-                lines = []
+                make_match_texts = []
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
-                        lines.append(self._make_match_text(test_expr))
-                text = "\n".join(lines) or "/"
+                        make_match_texts.append(self._make_match_text(test_expr))
+                text = f"\n{self._hilight_text("AND")}\n".join(make_match_texts)
                 self._write_column(
                     self._row_index,
                     column_index,
-                    text,
+                    text or "/",
                     self._cell_fmt,
                 )
                 column_index += 1
@@ -265,18 +312,20 @@ class ExcelGenerator:
             # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
-                    lines = []
+                    transform_item_texts = []
                     for transform_item in return_point.transform:
                         output_2 = transform_item["to"]
                         if output_2 == output:
-                            lines.append(self._make_transform_item_text(transform_item))
-                    text = "\n".join(lines) or "/"
+                            transform_item_texts.append(
+                                self._make_transform_item_text(transform_item)
+                            )
+                    text = f"\n{self._hilight_text("AND")}\n".join(transform_item_texts)
                     self._merge_range(
                         first_row_index,
                         column_index,
                         self._row_index,
                         column_index,
-                        text,
+                        text or "/",
                         self._cell_fmt,
                     )
                 column_index += 1
@@ -297,10 +346,8 @@ class ExcelGenerator:
                     tag = "❌ " + test_expr.fact
                 tags.append(tag)
 
-            if len(and_exprs) == 1:
-                line = f" " + "; ".join(tags)
-            else:
-                line = f" {len(lines)}. " + "; ".join(tags)
+            line_number = self._conceal_text(f"[{len(lines)}]")
+            line = f"{line_number} " + "; ".join(tags)
             lines.append(line)
 
         return "\n".join(lines)
@@ -334,33 +381,45 @@ class ExcelGenerator:
         return transform_item_text
 
     def _hilight_text(self, text: str) -> str:
+        return self._color_text(text, "hl")
+
+    def _conceal_text(self, text: str) -> str:
+        return self._color_text(text, "cc")
+
+    def _color_text(self, text: str, style: str) -> str:
         if text == "":
             return ""
-        return f"<{self._hilight_mark}>{text}</{self._hilight_mark}>"
+        return f"<{style}:{self._color_mark}>{text}</{style}:{self._color_mark}>"
 
-    def _render_hilighted_text(self, text: str) -> list[str | Format]:
-        parts = re.split(rf"(</?{self._hilight_mark}>)", text)
-        hilight_begin = f"<{self._hilight_mark}>"
-        hilight_end = f"</{self._hilight_mark}>"
-        hilighted_text: list[str | Format] = []
+    def _render_colorful_text(self, text: str) -> list[str | Format]:
+        parts = re.split(rf"(</?(?:hl|cc):{self._color_mark}>)", text)
+        colorful_text: list[str | Format] = []
 
         for i, part in enumerate(parts):
             if part == "":
                 continue
 
-            if part == hilight_begin:
-                hilighted_text.append(self._highlight_fmt)
-            elif part == hilight_end:
-                hilighted_text.append(self._default_fmt)
+            if self._color_mark in part:
+                if part.startswith("<hl:"):
+                    colorful_text.append(self._highlight_fmt)
+                elif part.startswith("<cc:"):
+                    colorful_text.append(self._conceal_fmt)
+                elif part.startswith("</"):
+                    colorful_text.append(self._default_fmt)
+                else:
+                    assert False
             else:
-                hilighted_text.append(part)
+                colorful_text.append(part)
 
-        return hilighted_text
+        if colorful_text[-1] is self._default_fmt:
+            colorful_text.pop()
+
+        return colorful_text
 
     def _write_column(self, row: int, col: int, text: str, format: Format) -> None:
-        if self._hilight_mark in text:
+        if self._color_mark in text:
             self._worksheet.write_rich_string(
-                row, col, *self._render_hilighted_text(text), format
+                row, col, *self._render_colorful_text(text), format
             )
         else:
             self._worksheet.write_column(row, col, [text], format)
@@ -378,12 +437,12 @@ class ExcelGenerator:
             self._write_column(first_row, first_col, text, format)
             return
 
-        if self._hilight_mark in text:
+        if self._color_mark in text:
             self._worksheet.merge_range(
                 first_row, first_col, last_row, last_col, "", format
             )
             self._worksheet.write_rich_string(
-                first_row, first_col, *self._render_hilighted_text(text), format
+                first_row, first_col, *self._render_colorful_text(text), format
             )
         else:
             self._worksheet.merge_range(
