@@ -84,7 +84,6 @@ class ExcelGenerator:
         )
         self._business_scenario_cell_fmt = self._workbook.add_format(
             {
-                "bg_color": "#FEFF54",
                 "border": True,
                 "font_size": 11,
                 "text_wrap": True,
@@ -94,7 +93,7 @@ class ExcelGenerator:
         self._when_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#F3C343",
+                "bg_color": "#F1C43D",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -104,7 +103,7 @@ class ExcelGenerator:
         self._then_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#9FCE62",
+                "bg_color": "#B5CE99",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -114,7 +113,7 @@ class ExcelGenerator:
         self._input_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#FEFF54",
+                "bg_color": "#F1C43D",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -125,7 +124,7 @@ class ExcelGenerator:
         self._output_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#FEFF54",
+                "bg_color": "#B5CE99",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -299,7 +298,7 @@ class ExcelGenerator:
                     input_2 = test_expr.key
                     if input_2 == input:
                         make_match_texts.append(self._make_match_text(test_expr))
-                text = f"\n{self._hilight_text("AND")}\n".join(make_match_texts)
+                text = f"\nand\n".join(make_match_texts)
                 self._write_column(
                     self._row_index,
                     column_index,
@@ -318,7 +317,7 @@ class ExcelGenerator:
                             transform_item_texts.append(
                                 self._make_transform_item_text(transform_item)
                             )
-                    text = f"\n{self._hilight_text("AND")}\n".join(transform_item_texts)
+                    text = f"\nand\n".join(transform_item_texts)
                     self._merge_range(
                         first_row_index,
                         column_index,
@@ -356,34 +355,59 @@ class ExcelGenerator:
         return "\n".join(lines)
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
+        parts = []
         if test_expr.is_positive:
             op = test_expr.op
         else:
             op = test_expr.reverse_op
-        values = test_expr.values.copy()
-        for i, v in enumerate(values):
-            values[i] = self._hilight_text(v)
-        match = {"op": self._hilight_text(op), "values": values}
-        match_text = json.dumps(match, ensure_ascii=False)
-        return match_text
+        parts.append(self._hilight_text(op))
+        parts.append("(")
+        for i, value in enumerate(test_expr.values):
+            if i >= 1:
+                parts.append(",")
+            parts.append(json.dumps(self._hilight_text(value), ensure_ascii=False))
+        parts.append(")")
+        return " ".join(parts)
 
     def _make_transform_item_text(self, transform_item: dict) -> str:
-        transform_item = copy.deepcopy(transform_item)
-        del transform_item["to"]
-        del transform_item["underlying_to"]
-        for operator in transform_item["operators"]:
-            operator.pop("underlying_op_type", None)
-            operator.pop("underlying_from", None)
+        parts = []
+        for i, operator in enumerate(transform_item["operators"]):
+            if i >= 1:
+                parts.append("|")
+            parts.append(self._hilight_text(operator["op"]))
+            parts.append("(")
 
-            from1 = operator.get("from", [])
+            from1 = operator.get("from", []).copy()
             for i, v in enumerate(from1):
                 from1[i] = self._hilight_text(v)
-            operator["op"] = self._hilight_text(operator["op"])
-            values = operator.get("values", [])
+            if len(from1) >= 1:
+                parts.append("from")
+                parts.append("=")
+                parts.append(json.dumps(from1, ensure_ascii=False))
+
+            values = operator.get("values", []).copy()
             for i, v in enumerate(values):
                 values[i] = self._hilight_text(v)
-        transform_item_text = json.dumps(transform_item, ensure_ascii=False)
-        return transform_item_text
+            if len(values) >= 1:
+                if len(from1) >= 1:
+                    parts.append(",")
+                parts.append("values")
+                parts.append("=")
+                parts.append(json.dumps(values, ensure_ascii=False))
+
+            op_type = operator.get("op_type", "")
+            if op_type != "":
+                if len(from1) + len(values) >= 1:
+                    parts.append(",")
+                parts.append("op_type")
+                parts.append("=")
+                parts.append(
+                    json.dumps(self._hilight_text(op_type), ensure_ascii=False)
+                )
+
+            parts.append(")")
+
+        return " ".join(parts)
 
     def _hilight_text(self, text: str) -> str:
         return self._color_text(text, "hl")
