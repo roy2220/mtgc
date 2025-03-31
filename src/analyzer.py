@@ -62,6 +62,7 @@ class TestExpr:
     key: str
     key_index: int
     op: str
+    reverse_op: str
     values: list[str]
     underlying_values: list[str]
     fact: str
@@ -212,6 +213,7 @@ class _TestArgs:
     key: str
     key_index: int
     op: str
+    reverse_op: str
     values: list[str]
     underlying_values: list[str]
     fact: str
@@ -237,12 +239,21 @@ class _P2Analyzer(Visitor):
 
         return self._return_points
 
-    def _get_or_new_symbol(self, test_args: _TestArgs) -> sympy.Symbol:
+    def _get_or_new_symbol(self, test_args: _TestArgs) -> boolalg.Boolean:
         symbol_name = json.dumps(
             [test_args.key, test_args.op, *test_args.values], ensure_ascii=False
         )
         symbol = self._symbols.get(symbol_name)
         if symbol is None:
+            reverse_symbol_name = json.dumps(
+                [test_args.key, test_args.reverse_op, *test_args.values],
+                ensure_ascii=False,
+            )
+            reverse_symbol = self._symbols.get(reverse_symbol_name)
+            if reverse_symbol is not None:
+                return boolalg.Not(reverse_symbol)
+
+            symbol = self._symbols.get(symbol_name)
             symbol = sympy.Symbol(symbol_name)
             self._symbols[symbol_name] = symbol
             self._return_points.symbol_name_2_test_args[symbol_name] = test_args
@@ -317,6 +328,7 @@ class _P2Analyzer(Visitor):
                     switch_statement.key,
                     switch_statement.key_index,
                     "eq",
+                    "neq",
                     [case_value],
                     [case_value],
                     fact,
@@ -359,11 +371,18 @@ class _P2Analyzer(Visitor):
             self._condiction_stack.append(sympy.false)
 
     def visit_test_condiction(self, test_condiction: TestCondiction) -> None:
+        reverse_test_op = _reverse_test_ops.get(test_condiction.op)
+        if reverse_test_op is None:
+            raise UnknownTestOpError(
+                test_condiction.source_location, test_condiction.op
+            )
+
         test_args = _TestArgs(
             test_condiction.source_location.file_offset,
             test_condiction.key,
             test_condiction.key_index,
             test_condiction.op,
+            reverse_test_op,
             test_condiction.values,
             test_condiction.underlying_values,
             test_condiction.fact,
@@ -479,6 +498,7 @@ class _P3Analyzer:
             test_args.key,
             test_args.key_index,
             test_args.op,
+            test_args.reverse_op,
             test_args.values,
             test_args.underlying_values,
             test_args.fact,
@@ -530,26 +550,147 @@ class _P3Analyzer:
         small_test_exprs = dict(enumerate(test_exprs))
 
         for test_expr_x in test_exprs:
-            if not (test_expr_x.is_positive, test_expr_x.op) == (True, "eq"):
+            if not (test_expr_x.is_positive, test_expr_x.op) in (
+                (True, "eq"),
+                (False, "neq"),
+                (True, "len_eq"),
+                (False, "len_neq"),
+                (True, "num_eq"),
+                (False, "num_neq"),
+            ):
                 continue
 
             for i, test_expr_y in enumerate(test_exprs):
-                if test_expr_y is not test_expr_x and (
-                    test_expr_y.key,
-                    test_expr_y.op,
-                ) == (
-                    test_expr_x.key,
-                    "eq",
+                if (
+                    test_expr_y is not test_expr_x
+                    and test_expr_y.key == test_expr_x.key
+                    and test_expr_y.op in (test_expr_x.op, test_expr_x.reverse_op)
                 ):
-                    assert test_expr_y.values != test_expr_x.values
+                    assert (
+                        test_expr_y.values != test_expr_x.values
+                    )  # bad cases removed by _simplify_condiction
 
-                    if test_expr_y.is_positive:
+                    if (test_expr_y.is_positive, test_expr_y.op) in (
+                        (
+                            test_expr_x.is_positive,
+                            test_expr_x.op,
+                        ),
+                        (
+                            not test_expr_x.is_positive,
+                            test_expr_x.reverse_op,
+                        ),
+                    ):
                         # conflict
                         return None
+                    else:
+                        # remove
+                        small_test_exprs.pop(i)
 
-                    small_test_exprs.pop(i)
+        for test_expr_x in tuple(small_test_exprs.values()):
+            if not (test_expr_x.is_positive, test_expr_x.op) in (
+                (True, "x/map_value_eq"),
+                (False, "x/map_value_neq"),
+                (True, "x/map_value_len_eq"),
+                (False, "x/map_value_len_neq"),
+                (True, "x/map_value_num_eq"),
+                (False, "x/map_value_num_neq"),
+            ):
+                continue
+
+            for i, test_expr_y in enumerate(test_exprs):
+                if (
+                    test_expr_y is not test_expr_x
+                    and (test_expr_y.key, test_expr_y.values[0])
+                    == (test_expr_x.key, test_expr_x.values[0])
+                    and test_expr_y.op in (test_expr_x.op, test_expr_x.reverse_op)
+                ):
+                    assert (
+                        test_expr_y.values != test_expr_x.values
+                    )  # bad cases removed by _simplify_condiction
+
+                    if (test_expr_y.is_positive, test_expr_y.op) in (
+                        (
+                            test_expr_x.is_positive,
+                            test_expr_x.op,
+                        ),
+                        (
+                            not test_expr_x.is_positive,
+                            test_expr_x.reverse_op,
+                        ),
+                    ):
+                        # conflict
+                        return None
+                    else:
+                        # remove
+                        small_test_exprs.pop(i)
 
         return list(small_test_exprs.values())
+
+
+_reverse_test_ops: dict[str, str] = {
+    "in": "nin",
+    "nin": "in",
+    "eq": "neq",
+    "neq": "eq",
+    "gt": "lte",
+    "lte": "gt",
+    "lt": "gte",
+    "gte": "lt",
+    "len_eq": "len_neq",
+    "len_neq": "len_eq",
+    "len_gt": "len_lte",
+    "len_lte": "len_gt",
+    "len_lt": "len_gte",
+    "len_gte": "len_lt",
+    "num_eq": "num_neq",
+    "num_neq": "num_eq",
+    "num_gt": "num_lte",
+    "num_lte": "num_gt",
+    "num_lt": "num_gte",
+    "num_gte": "num_lt",
+    # ----------
+    "v_in": "v_nin",
+    "v_nin": "v_in",
+    "v_eq": "v_neq",
+    "v_neq": "v_eq",
+    "v_gt": "v_lte",
+    "v_lte": "v_gt",
+    "v_lt": "v_gte",
+    "v_gte": "v_lt",
+    "v_len_eq": "v_len_neq",
+    "v_len_neq": "v_len_eq",
+    "v_len_gt": "v_len_lte",
+    "v_len_lte": "v_len_gt",
+    "v_len_lt": "v_len_gte",
+    "v_len_gte": "v_len_lt",
+    "v_num_eq": "v_num_neq",
+    "v_num_neq": "v_num_eq",
+    "v_num_gt": "v_num_lte",
+    "v_num_lte": "v_num_gt",
+    "v_num_lt": "v_num_gte",
+    "v_num_gte": "v_num_lt",
+    # ----------
+    "x/map_value_in": "x/map_value_nin",
+    "x/map_value_nin": "x/map_value_in",
+    "x/map_value_eq": "x/map_value_neq",
+    "x/map_value_neq": "x/map_value_eq",
+    "x/map_value_gt": "x/map_value_lte",
+    "x/map_value_lte": "x/map_value_gt",
+    "x/map_value_lt": "x/map_value_gte",
+    "x/map_value_gte": "x/map_value_lt",
+    "x/map_value_len_eq": "x/map_value_len_neq",
+    "x/map_value_len_neq": "x/map_value_len_eq",
+    "x/map_value_len_gt": "x/map_value_len_lte",
+    "x/map_value_len_lte": "x/map_value_len_gt",
+    "x/map_value_len_lt": "x/map_value_len_gte",
+    "x/map_value_len_gte": "x/map_value_len_lt",
+    "x/map_value_num_eq": "x/map_value_num_neq",
+    "x/map_value_num_neq": "x/map_value_num_eq",
+    "x/map_value_num_gt": "x/map_value_num_lte",
+    "x/map_value_num_lte": "x/map_value_num_gt",
+    "x/map_value_num_lt": "x/map_value_num_gte",
+    "x/map_value_num_gte": "x/map_value_num_lt",
+}
 
 
 class Error(Exception):
@@ -578,3 +719,8 @@ class DuplicateUnitNameError(Error):
 class MissingReturnStatementError(Error):
     def __init__(self, source_location: SourceLocation) -> None:
         super().__init__(source_location, "missing return statement")
+
+
+class UnknownTestOpError(Error):
+    def __init__(self, source_location: SourceLocation, test_op: str) -> None:
+        super().__init__(source_location, f"unknown test op {repr(test_op)}")

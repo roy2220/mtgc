@@ -84,7 +84,7 @@ class ExcelGenerator:
         )
         self._business_scenario_cell_fmt = self._workbook.add_format(
             {
-                "bg_color": "#F2F2F2",
+                "bg_color": "#FEFF54",
                 "border": True,
                 "font_size": 11,
                 "text_wrap": True,
@@ -94,7 +94,7 @@ class ExcelGenerator:
         self._when_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#DCE6F1",
+                "bg_color": "#F3C343",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -104,7 +104,7 @@ class ExcelGenerator:
         self._then_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#EBF1DE",
+                "bg_color": "#9FCE62",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -114,7 +114,7 @@ class ExcelGenerator:
         self._input_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#DCE6F1",
+                "bg_color": "#FEFF54",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -125,7 +125,7 @@ class ExcelGenerator:
         self._output_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#EBF1DE",
+                "bg_color": "#FEFF54",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -136,8 +136,7 @@ class ExcelGenerator:
         self._default_fmt = self._workbook.add_format()
         self._highlight_fmt = self._workbook.add_format(
             {
-                "bold": True,
-                "font_color": "#E46C0A",
+                "font_color": "#FF0000",
                 "font_size": 11,
             }
         )
@@ -195,7 +194,7 @@ class ExcelGenerator:
                         column_index - j,
                         self._row_index,
                         column_index,
-                        "When",
+                        "WHEN",
                         self._when_hdr_fmt,
                     )
 
@@ -214,7 +213,7 @@ class ExcelGenerator:
                         column_index - j,
                         self._row_index,
                         column_index,
-                        "Then",
+                        "THEN",
                         self._then_hdr_fmt,
                     )
 
@@ -242,7 +241,7 @@ class ExcelGenerator:
             0,
             self._row_index - 1,
             0,
-            f"{unit.name}\n({self._conceal_text(unit.alias)})",
+            f"{unit.alias}\n{self._conceal_text("("+unit.name+")")}",
             self._business_unit_cell_fmt,
         )
 
@@ -335,7 +334,7 @@ class ExcelGenerator:
     def _make_business_scenario_text(
         self, and_exprs: list[AndExpr], transform_annotation: str
     ) -> str:
-        lines = [transform_annotation]
+        lines = ["▶ " + transform_annotation]
 
         for and_expr in and_exprs:
             tags: list[str] = []
@@ -346,6 +345,10 @@ class ExcelGenerator:
                     tag = "❌ " + test_expr.fact
                 tags.append(tag)
 
+            if len(tags) == 0:
+                # always
+                break
+
             line_number = self._conceal_text(f"[{len(lines)}]")
             line = f"{line_number} " + "; ".join(tags)
             lines.append(line)
@@ -353,13 +356,15 @@ class ExcelGenerator:
         return "\n".join(lines)
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
+        if test_expr.is_positive:
+            op = test_expr.op
+        else:
+            op = test_expr.reverse_op
         values = test_expr.values.copy()
         for i, v in enumerate(values):
             values[i] = self._hilight_text(v)
-        match = {"op": self._hilight_text(test_expr.op), "values": values}
+        match = {"op": self._hilight_text(op), "values": values}
         match_text = json.dumps(match, ensure_ascii=False)
-        if not test_expr.is_positive:
-            match_text = self._hilight_text("NOT") + " " + match_text
         return match_text
 
     def _make_transform_item_text(self, transform_item: dict) -> str:

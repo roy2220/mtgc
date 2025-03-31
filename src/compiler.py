@@ -29,6 +29,7 @@ def main() -> None:
     mtg_dir_name = namespace.DIR[0]
     excel_file_name = namespace.e[0]
     mtg_file_names = glob.glob(os.path.join(mtg_dir_name, "*.mtg"))
+    mtg_file_names.sort()
 
     if len(mtg_file_names) == 0:
         raise SystemExit(f"no mtg file found in {repr(mtg_dir_name)}")
