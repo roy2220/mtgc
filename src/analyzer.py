@@ -58,14 +58,26 @@ class AndExpr:
 @dataclass
 class TestExpr:
     is_positive: bool
+    symbol_id: int
     file_offset: int
     key: str
     key_index: int
     op: str
-    reverse_op: str
     values: list[str]
     underlying_values: list[str]
     fact: str
+
+    reverse_op: str
+    number_of_subkeys: int
+
+    def virtual_key(self) -> Iterator[str]:
+        yield self.key
+        for i in range(0, self.number_of_subkeys):
+            yield self.values[i]
+
+    def real_values(self) -> Iterator[str]:
+        for i in range(self.number_of_subkeys, len(self.values)):
+            yield self.values[i]
 
 
 class Analyzer:
@@ -196,7 +208,7 @@ class _P1Analyzer(Visitor):
 @dataclass
 class _P2ReturnPoints:
     file_offset_2_item: dict[int, "_P2ReturnPoint"]
-    symbol_name_2_test_args: dict[str, "_TestArgs"]
+    symbol_id_2_test_args: dict[int, "_TestArgs"]
 
 
 @dataclass
@@ -213,10 +225,12 @@ class _TestArgs:
     key: str
     key_index: int
     op: str
-    reverse_op: str
     values: list[str]
     underlying_values: list[str]
     fact: str
+
+    reverse_op: str
+    number_of_subkeys: int
 
 
 class _P2Analyzer(Visitor):
@@ -229,7 +243,7 @@ class _P2Analyzer(Visitor):
 
     def __init__(self, program_link: Statement) -> None:
         self._program_link = program_link
-        self._symbols: dict[str, sympy.Symbol] = {}
+        self._symbols: dict[tuple[str, ...], sympy.Symbol] = {}
         self._condiction_stack: list[boolalg.Boolean] = []
         self._return_points = _P2ReturnPoints({}, {})
 
@@ -240,23 +254,22 @@ class _P2Analyzer(Visitor):
         return self._return_points
 
     def _get_or_new_symbol(self, test_args: _TestArgs) -> boolalg.Boolean:
-        symbol_name = json.dumps(
-            [test_args.key, test_args.op, *test_args.values], ensure_ascii=False
-        )
-        symbol = self._symbols.get(symbol_name)
+        symbol_key = (test_args.op, test_args.key, *test_args.values)
+        symbol = self._symbols.get(symbol_key)
         if symbol is None:
-            reverse_symbol_name = json.dumps(
-                [test_args.key, test_args.reverse_op, *test_args.values],
-                ensure_ascii=False,
+            reverse_symbol_key = (
+                test_args.reverse_op,
+                test_args.key,
+                *test_args.values,
             )
-            reverse_symbol = self._symbols.get(reverse_symbol_name)
+            reverse_symbol = self._symbols.get(reverse_symbol_key)
             if reverse_symbol is not None:
                 return boolalg.Not(reverse_symbol)
 
-            symbol = self._symbols.get(symbol_name)
-            symbol = sympy.Symbol(symbol_name)
-            self._symbols[symbol_name] = symbol
-            self._return_points.symbol_name_2_test_args[symbol_name] = test_args
+            symbol_id = len(self._symbols)
+            symbol = sympy.Symbol(str(symbol_id))
+            self._symbols[symbol_key] = symbol
+            self._return_points.symbol_id_2_test_args[symbol_id] = test_args
         return symbol
 
     def visit_return_statement(self, return_statement: ReturnStatement) -> None:
@@ -323,15 +336,17 @@ class _P2Analyzer(Visitor):
                     raise DuplicateCaseValueError(case_clause, i)
                 case_values.add(case_value)
 
+                test_op_info = _test_op_infos["in"]
                 test_args = _TestArgs(
                     switch_statement.source_location.file_offset,
                     switch_statement.key,
                     switch_statement.key_index,
-                    "eq",
-                    "neq",
+                    test_op_info.op,
                     [case_value],
                     [case_value],
                     fact,
+                    test_op_info.reverse_op,
+                    test_op_info.number_of_subkeys,
                 )
                 if condiction is None:
                     condiction = self._get_or_new_symbol(test_args)
@@ -382,15 +397,19 @@ class _P2Analyzer(Visitor):
                 test_condiction.source_location, test_op_info
             )
 
+        if test_op_info.alternative_op is not None:
+            test_op_info = _test_op_infos[test_op_info.alternative_op]
+
         test_args = _TestArgs(
             test_condiction.source_location.file_offset,
             test_condiction.key,
             test_condiction.key_index,
-            test_condiction.op,
-            test_op_info.reverse_op,
+            test_op_info.op,
             test_condiction.values,
             test_condiction.underlying_values,
             test_condiction.fact,
+            test_op_info.reverse_op,
+            test_op_info.number_of_subkeys,
         )
         self._condiction_stack.append(self._get_or_new_symbol(test_args))
 
@@ -495,18 +514,20 @@ class _P3Analyzer:
             condiction = condiction.args[0]  # type: ignore
 
         assert condiction.func is sympy.Symbol
-        symbol_name = condiction.name  # type: ignore
-        test_args = self._raw_return_points.symbol_name_2_test_args[symbol_name]
+        symbol_id = int(condiction.name)  # type: ignore
+        test_args = self._raw_return_points.symbol_id_2_test_args[symbol_id]
         return TestExpr(
             is_positive,
+            symbol_id,
             test_args.file_offset,
             test_args.key,
             test_args.key_index,
             test_args.op,
-            test_args.reverse_op,
             test_args.values,
             test_args.underlying_values,
             test_args.fact,
+            test_args.reverse_op,
+            test_args.number_of_subkeys,
         )
 
     @classmethod
@@ -562,23 +583,41 @@ class _P3Analyzer:
             if i not in small_test_exprs.keys():
                 continue
 
-            if not (test_expr_x.is_positive, test_expr_x.op) in (
-                (True, "eq"),
-                (False, "neq"),
+            distinct_x_values = None
+            if (test_expr_x.is_positive, test_expr_x.op) in (
+                (True, "in"),
+                (False, "nin"),
                 (True, "len_eq"),
                 (False, "len_neq"),
                 (True, "num_eq"),
                 (False, "num_neq"),
+                (True, "x/map_value_in"),
+                (False, "x/map_value_nin"),
+                (True, "x/map_value_len_eq"),
+                (False, "x/map_value_len_neq"),
+                (True, "x/map_value_num_eq"),
+                (False, "x/map_value_num_neq"),
             ):
-                continue
+                distinct_x_values = set(test_expr_x.real_values())
 
             for j, test_expr_y in enumerate(test_exprs):
                 if j == i or j not in small_test_exprs.keys():
                     continue
 
-                if test_expr_y.key == test_expr_x.key and test_expr_y.op in (
-                    test_expr_x.op,
-                    test_expr_x.reverse_op,
+                if test_expr_y.symbol_id == test_expr_x.symbol_id:
+                    if test_expr_y.is_positive == test_expr_x.is_positive:
+                        # remove duplicate
+                        small_test_exprs.pop(j)
+                        continue
+                    else:
+                        # conflict
+                        return None
+
+                if (
+                    distinct_x_values is not None
+                    and test_expr_y.op in (test_expr_x.op, test_expr_x.reverse_op)
+                    and tuple(test_expr_y.virtual_key())
+                    == tuple(test_expr_x.virtual_key())
                 ):
                     if (test_expr_y.is_positive, test_expr_y.op) in (
                         (
@@ -590,65 +629,21 @@ class _P3Analyzer:
                             test_expr_x.reverse_op,
                         ),
                     ):
-                        if test_expr_y.values == test_expr_x.values:
+                        if distinct_x_values.issuperset(test_expr_y.real_values()):
                             # remove duplicate
                             small_test_exprs.pop(j)
-                        else:
+                            continue
+                        elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
                             # conflict
                             return None
                     else:
-                        if test_expr_y.values == test_expr_x.values:
+                        if distinct_x_values.issubset(test_expr_y.real_values()):
                             # conflict
                             return None
-                        else:
+                        elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
                             # remove unused
                             small_test_exprs.pop(j)
-
-        for i, test_expr_x in enumerate(test_exprs):
-            if i not in small_test_exprs.keys():
-                continue
-
-            if not (test_expr_x.is_positive, test_expr_x.op) in (
-                (True, "x/map_value_eq"),
-                (False, "x/map_value_neq"),
-                (True, "x/map_value_len_eq"),
-                (False, "x/map_value_len_neq"),
-                (True, "x/map_value_num_eq"),
-                (False, "x/map_value_num_neq"),
-            ):
-                continue
-
-            for j, test_expr_y in enumerate(test_exprs):
-                if j == i or j not in small_test_exprs.keys():
-                    continue
-
-                if (test_expr_y.key, test_expr_y.values[0]) == (
-                    test_expr_x.key,
-                    test_expr_x.values[0],
-                ) and test_expr_y.op in (test_expr_x.op, test_expr_x.reverse_op):
-                    if (test_expr_y.is_positive, test_expr_y.op) in (
-                        (
-                            test_expr_x.is_positive,
-                            test_expr_x.op,
-                        ),
-                        (
-                            not test_expr_x.is_positive,
-                            test_expr_x.reverse_op,
-                        ),
-                    ):
-                        if test_expr_y.values == test_expr_x.values:
-                            # remove duplicate
-                            small_test_exprs.pop(j)
-                        else:
-                            # conflict
-                            return None
-                    else:
-                        if test_expr_y.values == test_expr_x.values:
-                            # conflict
-                            return None
-                        else:
-                            # remove unused
-                            small_test_exprs.pop(j)
+                            continue
 
         return list(small_test_exprs.values())
 
@@ -657,72 +652,102 @@ class _P3Analyzer:
 class _TestOpInfo:
     op: str
     reverse_op: str
+    alternative_op: str | None
     min_number_of_values: int
+    number_of_subkeys: int
 
 
 _test_op_infos: dict[str, _TestOpInfo] = {
-    "in": _TestOpInfo("in", "nin", 1),
-    "nin": _TestOpInfo("nin", "in", 1),
-    "eq": _TestOpInfo("eq", "neq", 1),
-    "neq": _TestOpInfo("neq", "eq", 1),
-    "gt": _TestOpInfo("gt", "lte", 1),
-    "lte": _TestOpInfo("lte", "gt", 1),
-    "lt": _TestOpInfo("lt", "gte", 1),
-    "gte": _TestOpInfo("gte", "lt", 1),
-    "len_eq": _TestOpInfo("len_eq", "len_neq", 1),
-    "len_neq": _TestOpInfo("len_neq", "len_eq", 1),
-    "len_gt": _TestOpInfo("len_gt", "len_lte", 1),
-    "len_lte": _TestOpInfo("len_lte", "len_gt", 1),
-    "len_lt": _TestOpInfo("len_lt", "len_gte", 1),
-    "len_gte": _TestOpInfo("len_gte", "len_lt", 1),
-    "num_eq": _TestOpInfo("num_eq", "num_neq", 1),
-    "num_neq": _TestOpInfo("num_neq", "num_eq", 1),
-    "num_gt": _TestOpInfo("num_gt", "num_lte", 1),
-    "num_lte": _TestOpInfo("num_lte", "num_gt", 1),
-    "num_lt": _TestOpInfo("num_lt", "num_gte", 1),
-    "num_gte": _TestOpInfo("num_gte", "num_lt", 1),
+    "in": _TestOpInfo("in", "nin", None, 1, 0),
+    "nin": _TestOpInfo("nin", "in", None, 1, 0),
+    "eq": _TestOpInfo("eq", "neq", "in", 1, 0),
+    "neq": _TestOpInfo("neq", "eq", "nin", 1, 0),
+    "gt": _TestOpInfo("gt", "lte", None, 1, 0),
+    "lte": _TestOpInfo("lte", "gt", None, 1, 0),
+    "lt": _TestOpInfo("lt", "gte", None, 1, 0),
+    "gte": _TestOpInfo("gte", "lt", None, 1, 0),
+    "len_eq": _TestOpInfo("len_eq", "len_neq", None, 1, 0),
+    "len_neq": _TestOpInfo("len_neq", "len_eq", None, 1, 0),
+    "len_gt": _TestOpInfo("len_gt", "len_lte", None, 1, 0),
+    "len_lte": _TestOpInfo("len_lte", "len_gt", None, 1, 0),
+    "len_lt": _TestOpInfo("len_lt", "len_gte", None, 1, 0),
+    "len_gte": _TestOpInfo("len_gte", "len_lt", None, 1, 0),
+    "num_eq": _TestOpInfo("num_eq", "num_neq", None, 1, 0),
+    "num_neq": _TestOpInfo("num_neq", "num_eq", None, 1, 0),
+    "num_gt": _TestOpInfo("num_gt", "num_lte", None, 1, 0),
+    "num_lte": _TestOpInfo("num_lte", "num_gt", None, 1, 0),
+    "num_lt": _TestOpInfo("num_lt", "num_gte", None, 1, 0),
+    "num_gte": _TestOpInfo("num_gte", "num_lt", None, 1, 0),
     # ----------
-    "v_in": _TestOpInfo("v_in", "v_nin", 1),
-    "v_nin": _TestOpInfo("v_nin", "v_in", 1),
-    "v_eq": _TestOpInfo("v_eq", "v_neq", 1),
-    "v_neq": _TestOpInfo("v_neq", "v_eq", 1),
-    "v_gt": _TestOpInfo("v_gt", "v_lte", 1),
-    "v_lte": _TestOpInfo("v_lte", "v_gt", 1),
-    "v_lt": _TestOpInfo("v_lt", "v_gte", 1),
-    "v_gte": _TestOpInfo("v_gte", "v_lt", 1),
-    "v_len_eq": _TestOpInfo("v_len_eq", "v_len_neq", 1),
-    "v_len_neq": _TestOpInfo("v_len_neq", "v_len_eq", 1),
-    "v_len_gt": _TestOpInfo("v_len_gt", "v_len_lte", 1),
-    "v_len_lte": _TestOpInfo("v_len_lte", "v_len_gt", 1),
-    "v_len_lt": _TestOpInfo("v_len_lt", "v_len_gte", 1),
-    "v_len_gte": _TestOpInfo("v_len_gte", "v_len_lt", 1),
-    "v_num_eq": _TestOpInfo("v_num_eq", "v_num_neq", 1),
-    "v_num_neq": _TestOpInfo("v_num_neq", "v_num_eq", 1),
-    "v_num_gt": _TestOpInfo("v_num_gt", "v_num_lte", 1),
-    "v_num_lte": _TestOpInfo("v_num_lte", "v_num_gt", 1),
-    "v_num_lt": _TestOpInfo("v_num_lt", "v_num_gte", 1),
-    "v_num_gte": _TestOpInfo("v_num_gte", "v_num_lt", 1),
+    "v_in": _TestOpInfo("v_in", "v_nin", None, 1, 0),
+    "v_nin": _TestOpInfo("v_nin", "v_in", None, 1, 0),
+    "v_eq": _TestOpInfo("v_eq", "v_neq", "v_in", 1, 0),
+    "v_neq": _TestOpInfo("v_neq", "v_eq", "v_nin", 1, 0),
+    "v_gt": _TestOpInfo("v_gt", "v_lte", None, 1, 0),
+    "v_lte": _TestOpInfo("v_lte", "v_gt", None, 1, 0),
+    "v_lt": _TestOpInfo("v_lt", "v_gte", None, 1, 0),
+    "v_gte": _TestOpInfo("v_gte", "v_lt", None, 1, 0),
+    "v_len_eq": _TestOpInfo("v_len_eq", "v_len_neq", None, 1, 0),
+    "v_len_neq": _TestOpInfo("v_len_neq", "v_len_eq", None, 1, 0),
+    "v_len_gt": _TestOpInfo("v_len_gt", "v_len_lte", None, 1, 0),
+    "v_len_lte": _TestOpInfo("v_len_lte", "v_len_gt", None, 1, 0),
+    "v_len_lt": _TestOpInfo("v_len_lt", "v_len_gte", None, 1, 0),
+    "v_len_gte": _TestOpInfo("v_len_gte", "v_len_lt", None, 1, 0),
+    "v_num_eq": _TestOpInfo("v_num_eq", "v_num_neq", None, 1, 0),
+    "v_num_neq": _TestOpInfo("v_num_neq", "v_num_eq", None, 1, 0),
+    "v_num_gt": _TestOpInfo("v_num_gt", "v_num_lte", None, 1, 0),
+    "v_num_lte": _TestOpInfo("v_num_lte", "v_num_gt", None, 1, 0),
+    "v_num_lt": _TestOpInfo("v_num_lt", "v_num_gte", None, 1, 0),
+    "v_num_gte": _TestOpInfo("v_num_gte", "v_num_lt", None, 1, 0),
     # ----------
-    "x/map_value_in": _TestOpInfo("x/map_value_in", "x/map_value_nin", 2),
-    "x/map_value_nin": _TestOpInfo("x/map_value_nin", "x/map_value_in", 2),
-    "x/map_value_eq": _TestOpInfo("x/map_value_eq", "x/map_value_neq", 2),
-    "x/map_value_neq": _TestOpInfo("x/map_value_neq", "x/map_value_eq", 2),
-    "x/map_value_gt": _TestOpInfo("x/map_value_gt", "x/map_value_lte", 2),
-    "x/map_value_lte": _TestOpInfo("x/map_value_lte", "x/map_value_gt", 2),
-    "x/map_value_lt": _TestOpInfo("x/map_value_lt", "x/map_value_gte", 2),
-    "x/map_value_gte": _TestOpInfo("x/map_value_gte", "x/map_value_lt", 2),
-    "x/map_value_len_eq": _TestOpInfo("x/map_value_len_eq", "x/map_value_len_neq", 2),
-    "x/map_value_len_neq": _TestOpInfo("x/map_value_len_neq", "x/map_value_len_eq", 2),
-    "x/map_value_len_gt": _TestOpInfo("x/map_value_len_gt", "x/map_value_len_lte", 2),
-    "x/map_value_len_lte": _TestOpInfo("x/map_value_len_lte", "x/map_value_len_gt", 2),
-    "x/map_value_len_lt": _TestOpInfo("x/map_value_len_lt", "x/map_value_len_gte", 2),
-    "x/map_value_len_gte": _TestOpInfo("x/map_value_len_gte", "x/map_value_len_lt", 2),
-    "x/map_value_num_eq": _TestOpInfo("x/map_value_num_eq", "x/map_value_num_neq", 2),
-    "x/map_value_num_neq": _TestOpInfo("x/map_value_num_neq", "x/map_value_num_eq", 2),
-    "x/map_value_num_gt": _TestOpInfo("x/map_value_num_gt", "x/map_value_num_lte", 2),
-    "x/map_value_num_lte": _TestOpInfo("x/map_value_num_lte", "x/map_value_num_gt", 2),
-    "x/map_value_num_lt": _TestOpInfo("x/map_value_num_lt", "x/map_value_num_gte", 2),
-    "x/map_value_num_gte": _TestOpInfo("x/map_value_num_gte", "x/map_value_num_lt", 2),
+    "x/map_value_in": _TestOpInfo("x/map_value_in", "x/map_value_nin", None, 2, 1),
+    "x/map_value_nin": _TestOpInfo("x/map_value_nin", "x/map_value_in", None, 2, 1),
+    "x/map_value_eq": _TestOpInfo(
+        "x/map_value_eq", "x/map_value_neq", "x/map_value_in", 2, 1
+    ),
+    "x/map_value_neq": _TestOpInfo(
+        "x/map_value_neq", "x/map_value_eq", "x/map_value_nin", 2, 1
+    ),
+    "x/map_value_gt": _TestOpInfo("x/map_value_gt", "x/map_value_lte", None, 2, 1),
+    "x/map_value_lte": _TestOpInfo("x/map_value_lte", "x/map_value_gt", None, 2, 1),
+    "x/map_value_lt": _TestOpInfo("x/map_value_lt", "x/map_value_gte", None, 2, 1),
+    "x/map_value_gte": _TestOpInfo("x/map_value_gte", "x/map_value_lt", None, 2, 1),
+    "x/map_value_len_eq": _TestOpInfo(
+        "x/map_value_len_eq", "x/map_value_len_neq", None, 2, 1
+    ),
+    "x/map_value_len_neq": _TestOpInfo(
+        "x/map_value_len_neq", "x/map_value_len_eq", None, 2, 1
+    ),
+    "x/map_value_len_gt": _TestOpInfo(
+        "x/map_value_len_gt", "x/map_value_len_lte", None, 2, 1
+    ),
+    "x/map_value_len_lte": _TestOpInfo(
+        "x/map_value_len_lte", "x/map_value_len_gt", None, 2, 1
+    ),
+    "x/map_value_len_lt": _TestOpInfo(
+        "x/map_value_len_lt", "x/map_value_len_gte", None, 2, 1
+    ),
+    "x/map_value_len_gte": _TestOpInfo(
+        "x/map_value_len_gte", "x/map_value_len_lt", None, 2, 1
+    ),
+    "x/map_value_num_eq": _TestOpInfo(
+        "x/map_value_num_eq", "x/map_value_num_neq", None, 2, 1
+    ),
+    "x/map_value_num_neq": _TestOpInfo(
+        "x/map_value_num_neq", "x/map_value_num_eq", None, 2, 1
+    ),
+    "x/map_value_num_gt": _TestOpInfo(
+        "x/map_value_num_gt", "x/map_value_num_lte", None, 2, 1
+    ),
+    "x/map_value_num_lte": _TestOpInfo(
+        "x/map_value_num_lte", "x/map_value_num_gt", None, 2, 1
+    ),
+    "x/map_value_num_lt": _TestOpInfo(
+        "x/map_value_num_lt", "x/map_value_num_gte", None, 2, 1
+    ),
+    "x/map_value_num_gte": _TestOpInfo(
+        "x/map_value_num_gte", "x/map_value_num_lt", None, 2, 1
+    ),
 }
 
 
