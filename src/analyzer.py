@@ -69,8 +69,7 @@ class TestExpr:
 
     reverse_op: str
     number_of_subkeys: int
-    merged_values: list[str]
-    merged_children: list["TestExpr"]
+    children: list["TestExpr"]
 
     def virtual_key(self) -> Iterator[str]:
         yield self.key
@@ -80,6 +79,10 @@ class TestExpr:
     def real_values(self) -> Iterator[str]:
         for i in range(self.number_of_subkeys, len(self.values)):
             yield self.values[i]
+
+    def real_underlying_values(self) -> Iterator[str]:
+        for i in range(self.number_of_subkeys, len(self.values)):
+            yield self.underlying_values[i]
 
 
 class Analyzer:
@@ -406,8 +409,9 @@ class _P2Analyzer(Visitor):
                 test_condiction.source_location, test_op_info
             )
 
-        if test_op_info.alternative_op is not None:
-            test_op_info = _test_op_infos[test_op_info.alternative_op]
+        if test_op_info.multiple_op is not None:
+            # multiple_op is easy for _P3Analyzer._reduce_test_exprs
+            test_op_info = _test_op_infos[test_op_info.multiple_op]
 
         test_args = _TestArgs(
             test_condiction.source_location.file_offset,
@@ -532,12 +536,11 @@ class _P3Analyzer:
             test_args.key,
             test_args.key_index,
             test_args.op,
-            test_args.values,
-            test_args.underlying_values,
+            test_args.values.copy(),  # could be modified
+            test_args.underlying_values.copy(),  # could be modified
             test_args.fact,
             test_args.reverse_op,
             test_args.number_of_subkeys,
-            test_args.values.copy(),
             [],
         )
 
@@ -688,16 +691,17 @@ class _P3Analyzer:
                             ),
                         ):
                             # merge `in` into `in`
-                            test_expr_x.merged_values.extend(test_expr_y.real_values())
+                            test_expr_x.values.extend(test_expr_y.real_values())
+                            test_expr_x.underlying_values.extend(
+                                test_expr_y.real_underlying_values()
+                            )
                         else:
                             # merge `nin` into `in`
-                            for v in test_expr_y.real_values():
-                                try:
-                                    test_expr_x.merged_values.remove(v)
-                                except ValueError:
-                                    pass
+                            cls._remove_real_values(
+                                test_expr_x, set(test_expr_y.real_values())
+                            )
 
-                        test_expr_x.merged_children.append(test_expr_y)
+                        test_expr_x.children.append(test_expr_y)
                         small_test_exprs.pop(j)
 
         # merge phase 2
@@ -728,11 +732,40 @@ class _P3Analyzer:
                         test_expr_x.virtual_key()
                     ):
                         # merge `nin` into `nin`
-                        test_expr_x.merged_values.extend(test_expr_y.real_values())
-                        test_expr_x.merged_children.append(test_expr_y)
+                        test_expr_x.values.extend(test_expr_y.real_values())
+                        test_expr_x.underlying_values.extend(
+                            test_expr_y.real_underlying_values()
+                        )
+                        test_expr_x.children.append(test_expr_y)
                         small_test_exprs.pop(j)
 
+        # merge phase 3
+        for i, test_expr in small_test_exprs.items():
+            if len(test_expr.values) - test_expr.number_of_subkeys == 1:
+                single_test_op = _test_op_infos[test_expr.op].single_op
+                if single_test_op is not None:
+                    # multiple_op => single_op
+                    small_test_exprs[i] = dataclasses.replace(
+                        test_expr,
+                        op=single_test_op,
+                        reverse_op=_test_op_infos[single_test_op].reverse_op,
+                    )
+
         return list(small_test_exprs.values())
+
+    @classmethod
+    def _remove_real_values(cls, test_expr: TestExpr, target_values: set[str]) -> None:
+        i = test_expr.number_of_subkeys
+        for j in range(test_expr.number_of_subkeys, len(test_expr.values)):
+            if test_expr.values[j] in target_values:
+                continue
+
+            test_expr.values[i] = test_expr.values[j]
+            test_expr.underlying_values[i] = test_expr.underlying_values[j]
+            i += 1
+
+        del test_expr.values[i:]
+        del test_expr.underlying_values[i:]
 
 
 @dataclass
@@ -740,7 +773,8 @@ class _TestOpInfo:
     op: str
     reverse_op: str
 
-    alternative_op: str | None = None
+    multiple_op: str | None = None
+    single_op: str | None = None
     min_number_of_values: int = 0
     max_number_of_values: int | None = None
     number_of_subkeys: int = 0
@@ -750,24 +784,26 @@ _test_op_infos: dict[str, _TestOpInfo] = {
     "in": _TestOpInfo(
         op="in",
         reverse_op="nin",
+        single_op="eq",
         min_number_of_values=1,
     ),
     "nin": _TestOpInfo(
         op="nin",
         reverse_op="in",
+        single_op="neq",
         min_number_of_values=1,
     ),
     "eq": _TestOpInfo(
         op="eq",
         reverse_op="neq",
-        alternative_op="in",
+        multiple_op="in",
         min_number_of_values=1,
         max_number_of_values=1,
     ),
     "neq": _TestOpInfo(
         op="neq",
         reverse_op="eq",
-        alternative_op="nin",
+        multiple_op="nin",
         min_number_of_values=1,
         max_number_of_values=1,
     ),
@@ -871,24 +907,26 @@ _test_op_infos: dict[str, _TestOpInfo] = {
     "v_in": _TestOpInfo(
         op="v_in",
         reverse_op="v_nin",
+        single_op="v_eq",
         min_number_of_values=1,
     ),
     "v_nin": _TestOpInfo(
         op="v_nin",
         reverse_op="v_in",
+        single_op="v_neq",
         min_number_of_values=1,
     ),
     "v_eq": _TestOpInfo(
         op="v_eq",
         reverse_op="v_neq",
-        alternative_op="v_in",
+        multiple_op="v_in",
         min_number_of_values=1,
         max_number_of_values=1,
     ),
     "v_neq": _TestOpInfo(
         op="v_neq",
         reverse_op="v_eq",
-        alternative_op="v_nin",
+        multiple_op="v_nin",
         min_number_of_values=1,
         max_number_of_values=1,
     ),
@@ -989,22 +1027,35 @@ _test_op_infos: dict[str, _TestOpInfo] = {
         max_number_of_values=1,
     ),
     # ----------
+    "x/string/regexp_like": _TestOpInfo(
+        op="x/string/regexp_like",
+        reverse_op="x/string/regexp_unlike",
+        min_number_of_values=1,
+    ),
+    "x/string/regexp_unlike": _TestOpInfo(
+        op="x/string/regexp_unlike",
+        reverse_op="x/string/regexp_like",
+        min_number_of_values=1,
+    ),
+    # ----------
     "x/map/elem_in": _TestOpInfo(
         op="x/map/elem_in",
         reverse_op="x/map/elem_nin",
+        single_op="x/map/elem_eq",
         min_number_of_values=2,
         number_of_subkeys=1,
     ),
     "x/map/elem_nin": _TestOpInfo(
         op="x/map/elem_nin",
         reverse_op="x/map/elem_in",
+        single_op="x/map/elem_neq",
         min_number_of_values=2,
         number_of_subkeys=1,
     ),
     "x/map/elem_eq": _TestOpInfo(
         op="x/map/elem_eq",
         reverse_op="x/map/elem_neq",
-        alternative_op="x/map/elem_in",
+        multiple_op="x/map/elem_in",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
@@ -1012,7 +1063,7 @@ _test_op_infos: dict[str, _TestOpInfo] = {
     "x/map/elem_neq": _TestOpInfo(
         op="x/map/elem_neq",
         reverse_op="x/map/elem_eq",
-        alternative_op="x/map/elem_nin",
+        multiple_op="x/map/elem_nin",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
@@ -1127,6 +1178,20 @@ _test_op_infos: dict[str, _TestOpInfo] = {
         reverse_op="x/map/elem_num_lt",
         min_number_of_values=2,
         max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map/has_key": _TestOpInfo(
+        op="x/map/has_key",
+        reverse_op="x/map/has_not_key",
+        min_number_of_values=1,
+        max_number_of_values=1,
+        number_of_subkeys=1,
+    ),
+    "x/map/has_no_key": _TestOpInfo(
+        op="x/map/has_no_key",
+        reverse_op="x/map/has_key",
+        min_number_of_values=1,
+        max_number_of_values=1,
         number_of_subkeys=1,
     ),
 }

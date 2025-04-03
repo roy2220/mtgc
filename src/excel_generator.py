@@ -344,8 +344,8 @@ class ExcelGenerator:
             tags: list[str] = []
             for test_expr in and_expr.test_exprs:
                 tags.append(make_tag(test_expr))
-                for merged_test_expr in test_expr.merged_children:
-                    tags.append(make_tag(merged_test_expr))
+                for child_test_expr in test_expr.children:
+                    tags.append(make_tag(child_test_expr))
 
             if len(tags) == 0:
                 # always
@@ -363,9 +363,10 @@ class ExcelGenerator:
             op = test_expr.op
         else:
             op = test_expr.reverse_op
+
         parts.append(self._hilight_text(op))
         parts.append("(")
-        for i, value in enumerate(test_expr.merged_values):
+        for i, value in enumerate(test_expr.values):
             if i >= 1:
                 parts.append(",")
             parts.append(json.dumps(self._hilight_text(value), ensure_ascii=False))
@@ -377,6 +378,7 @@ class ExcelGenerator:
         for i, operator in enumerate(transform_item["operators"]):
             if i >= 1:
                 parts.append("|")
+
             parts.append(self._hilight_text(operator["op"]))
             parts.append("(")
 
