@@ -333,16 +333,19 @@ class ExcelGenerator:
     def _make_business_scenario_text(
         self, and_exprs: list[AndExpr], transform_annotation: str
     ) -> str:
-        lines = ["▶ " + transform_annotation]
+        def make_tag(test_expr: TestExpr) -> str:
+            if test_expr.is_positive:
+                return "✅ " + test_expr.fact
+            else:
+                return "❌ " + test_expr.fact
 
+        lines = ["▶ " + transform_annotation]
         for and_expr in and_exprs:
             tags: list[str] = []
             for test_expr in and_expr.test_exprs:
-                if test_expr.is_positive:
-                    tag = "✅ " + test_expr.fact
-                else:
-                    tag = "❌ " + test_expr.fact
-                tags.append(tag)
+                tags.append(make_tag(test_expr))
+                for merged_test_expr in test_expr.merged_children:
+                    tags.append(make_tag(merged_test_expr))
 
             if len(tags) == 0:
                 # always
@@ -362,7 +365,7 @@ class ExcelGenerator:
             op = test_expr.reverse_op
         parts.append(self._hilight_text(op))
         parts.append("(")
-        for i, value in enumerate(test_expr.values):
+        for i, value in enumerate(test_expr.merged_values):
             if i >= 1:
                 parts.append(",")
             parts.append(json.dumps(self._hilight_text(value), ensure_ascii=False))

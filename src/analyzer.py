@@ -69,6 +69,8 @@ class TestExpr:
 
     reverse_op: str
     number_of_subkeys: int
+    merged_values: list[str]
+    merged_children: list["TestExpr"]
 
     def virtual_key(self) -> Iterator[str]:
         yield self.key
@@ -393,7 +395,14 @@ class _P2Analyzer(Visitor):
             )
 
         if len(test_condiction.values) < test_op_info.min_number_of_values:
-            raise MoreTestOpValuesRequiredError(
+            raise InsufficientTestOpValuesError(
+                test_condiction.source_location, test_op_info
+            )
+
+        if (n := test_op_info.max_number_of_values) is not None and len(
+            test_condiction.values
+        ) > n:
+            raise TooManyTestOpValuesError(
                 test_condiction.source_location, test_op_info
             )
 
@@ -528,6 +537,8 @@ class _P3Analyzer:
             test_args.fact,
             test_args.reverse_op,
             test_args.number_of_subkeys,
+            test_args.values.copy(),
+            [],
         )
 
     @classmethod
@@ -645,6 +656,82 @@ class _P3Analyzer:
                             small_test_exprs.pop(j)
                             continue
 
+        # merge phase 1
+        for i, test_expr_x in enumerate(test_exprs):
+            if i not in small_test_exprs.keys():
+                continue
+
+            if (test_expr_x.is_positive, test_expr_x.op) in (
+                (True, "in"),
+                (False, "nin"),
+                (True, "x/map_value_in"),
+                (False, "x/map_value_nin"),
+            ):
+                for j, test_expr_y in enumerate(test_exprs):
+                    if j == i or j not in small_test_exprs.keys():
+                        continue
+
+                    if test_expr_y.op in (
+                        test_expr_x.op,
+                        test_expr_x.reverse_op,
+                    ) and tuple(test_expr_y.virtual_key()) == tuple(
+                        test_expr_x.virtual_key()
+                    ):
+                        if (test_expr_y.is_positive, test_expr_y.op) in (
+                            (
+                                test_expr_x.is_positive,
+                                test_expr_x.op,
+                            ),
+                            (
+                                not test_expr_x.is_positive,
+                                test_expr_x.reverse_op,
+                            ),
+                        ):
+                            # merge `in` into `in`
+                            test_expr_x.merged_values.extend(test_expr_y.real_values())
+                        else:
+                            # merge `nin` into `in`
+                            for v in test_expr_y.real_values():
+                                try:
+                                    test_expr_x.merged_values.remove(v)
+                                except ValueError:
+                                    pass
+
+                        test_expr_x.merged_children.append(test_expr_y)
+                        small_test_exprs.pop(j)
+
+        # merge phase 2
+        for i, test_expr_x in enumerate(test_exprs):
+            if i not in small_test_exprs.keys():
+                continue
+
+            if (test_expr_x.is_positive, test_expr_x.op) in (
+                (False, "in"),
+                (True, "nin"),
+                (False, "x/map_value_in"),
+                (True, "x/map_value_nin"),
+            ):
+                for j, test_expr_y in enumerate(test_exprs):
+                    if j == i or j not in small_test_exprs.keys():
+                        continue
+
+                    if (test_expr_y.is_positive, test_expr_y.op) in (
+                        (
+                            test_expr_x.is_positive,
+                            test_expr_x.op,
+                        ),
+                        (
+                            not test_expr_x.is_positive,
+                            test_expr_x.reverse_op,
+                        ),
+                    ) and tuple(test_expr_y.virtual_key()) == tuple(
+                        test_expr_x.virtual_key()
+                    ):
+                        # merge `nin` into `nin`
+                        test_expr_x.merged_values.extend(test_expr_y.real_values())
+                        test_expr_x.merged_children.append(test_expr_y)
+                        small_test_exprs.pop(j)
+
         return list(small_test_exprs.values())
 
 
@@ -652,101 +739,395 @@ class _P3Analyzer:
 class _TestOpInfo:
     op: str
     reverse_op: str
-    alternative_op: str | None
-    min_number_of_values: int
-    number_of_subkeys: int
+
+    alternative_op: str | None = None
+    min_number_of_values: int = 0
+    max_number_of_values: int | None = None
+    number_of_subkeys: int = 0
 
 
 _test_op_infos: dict[str, _TestOpInfo] = {
-    "in": _TestOpInfo("in", "nin", None, 1, 0),
-    "nin": _TestOpInfo("nin", "in", None, 1, 0),
-    "eq": _TestOpInfo("eq", "neq", "in", 1, 0),
-    "neq": _TestOpInfo("neq", "eq", "nin", 1, 0),
-    "gt": _TestOpInfo("gt", "lte", None, 1, 0),
-    "lte": _TestOpInfo("lte", "gt", None, 1, 0),
-    "lt": _TestOpInfo("lt", "gte", None, 1, 0),
-    "gte": _TestOpInfo("gte", "lt", None, 1, 0),
-    "len_eq": _TestOpInfo("len_eq", "len_neq", None, 1, 0),
-    "len_neq": _TestOpInfo("len_neq", "len_eq", None, 1, 0),
-    "len_gt": _TestOpInfo("len_gt", "len_lte", None, 1, 0),
-    "len_lte": _TestOpInfo("len_lte", "len_gt", None, 1, 0),
-    "len_lt": _TestOpInfo("len_lt", "len_gte", None, 1, 0),
-    "len_gte": _TestOpInfo("len_gte", "len_lt", None, 1, 0),
-    "num_eq": _TestOpInfo("num_eq", "num_neq", None, 1, 0),
-    "num_neq": _TestOpInfo("num_neq", "num_eq", None, 1, 0),
-    "num_gt": _TestOpInfo("num_gt", "num_lte", None, 1, 0),
-    "num_lte": _TestOpInfo("num_lte", "num_gt", None, 1, 0),
-    "num_lt": _TestOpInfo("num_lt", "num_gte", None, 1, 0),
-    "num_gte": _TestOpInfo("num_gte", "num_lt", None, 1, 0),
+    "in": _TestOpInfo(
+        op="in",
+        reverse_op="nin",
+        min_number_of_values=1,
+    ),
+    "nin": _TestOpInfo(
+        op="nin",
+        reverse_op="in",
+        min_number_of_values=1,
+    ),
+    "eq": _TestOpInfo(
+        op="eq",
+        reverse_op="neq",
+        alternative_op="in",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "neq": _TestOpInfo(
+        op="neq",
+        reverse_op="eq",
+        alternative_op="nin",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "gt": _TestOpInfo(
+        op="gt",
+        reverse_op="lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "lte": _TestOpInfo(
+        op="lte",
+        reverse_op="gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "lt": _TestOpInfo(
+        op="lt",
+        reverse_op="gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "gte": _TestOpInfo(
+        op="gte",
+        reverse_op="lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_eq": _TestOpInfo(
+        op="len_eq",
+        reverse_op="len_neq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_neq": _TestOpInfo(
+        op="len_neq",
+        reverse_op="len_eq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_gt": _TestOpInfo(
+        op="len_gt",
+        reverse_op="len_lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_lte": _TestOpInfo(
+        op="len_lte",
+        reverse_op="len_gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_lt": _TestOpInfo(
+        op="len_lt",
+        reverse_op="len_gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "len_gte": _TestOpInfo(
+        op="len_gte",
+        reverse_op="len_lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_eq": _TestOpInfo(
+        op="num_eq",
+        reverse_op="num_neq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_neq": _TestOpInfo(
+        op="num_neq",
+        reverse_op="num_eq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_gt": _TestOpInfo(
+        op="num_gt",
+        reverse_op="num_lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_lte": _TestOpInfo(
+        op="num_lte",
+        reverse_op="num_gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_lt": _TestOpInfo(
+        op="num_lt",
+        reverse_op="num_gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "num_gte": _TestOpInfo(
+        op="num_gte",
+        reverse_op="num_lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
     # ----------
-    "v_in": _TestOpInfo("v_in", "v_nin", None, 1, 0),
-    "v_nin": _TestOpInfo("v_nin", "v_in", None, 1, 0),
-    "v_eq": _TestOpInfo("v_eq", "v_neq", "v_in", 1, 0),
-    "v_neq": _TestOpInfo("v_neq", "v_eq", "v_nin", 1, 0),
-    "v_gt": _TestOpInfo("v_gt", "v_lte", None, 1, 0),
-    "v_lte": _TestOpInfo("v_lte", "v_gt", None, 1, 0),
-    "v_lt": _TestOpInfo("v_lt", "v_gte", None, 1, 0),
-    "v_gte": _TestOpInfo("v_gte", "v_lt", None, 1, 0),
-    "v_len_eq": _TestOpInfo("v_len_eq", "v_len_neq", None, 1, 0),
-    "v_len_neq": _TestOpInfo("v_len_neq", "v_len_eq", None, 1, 0),
-    "v_len_gt": _TestOpInfo("v_len_gt", "v_len_lte", None, 1, 0),
-    "v_len_lte": _TestOpInfo("v_len_lte", "v_len_gt", None, 1, 0),
-    "v_len_lt": _TestOpInfo("v_len_lt", "v_len_gte", None, 1, 0),
-    "v_len_gte": _TestOpInfo("v_len_gte", "v_len_lt", None, 1, 0),
-    "v_num_eq": _TestOpInfo("v_num_eq", "v_num_neq", None, 1, 0),
-    "v_num_neq": _TestOpInfo("v_num_neq", "v_num_eq", None, 1, 0),
-    "v_num_gt": _TestOpInfo("v_num_gt", "v_num_lte", None, 1, 0),
-    "v_num_lte": _TestOpInfo("v_num_lte", "v_num_gt", None, 1, 0),
-    "v_num_lt": _TestOpInfo("v_num_lt", "v_num_gte", None, 1, 0),
-    "v_num_gte": _TestOpInfo("v_num_gte", "v_num_lt", None, 1, 0),
+    "v_in": _TestOpInfo(
+        op="v_in",
+        reverse_op="v_nin",
+        min_number_of_values=1,
+    ),
+    "v_nin": _TestOpInfo(
+        op="v_nin",
+        reverse_op="v_in",
+        min_number_of_values=1,
+    ),
+    "v_eq": _TestOpInfo(
+        op="v_eq",
+        reverse_op="v_neq",
+        alternative_op="v_in",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_neq": _TestOpInfo(
+        op="v_neq",
+        reverse_op="v_eq",
+        alternative_op="v_nin",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_gt": _TestOpInfo(
+        op="v_gt",
+        reverse_op="v_lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_lte": _TestOpInfo(
+        op="v_lte",
+        reverse_op="v_gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_lt": _TestOpInfo(
+        op="v_lt",
+        reverse_op="v_gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_gte": _TestOpInfo(
+        op="v_gte",
+        reverse_op="v_lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_eq": _TestOpInfo(
+        op="v_len_eq",
+        reverse_op="v_len_neq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_neq": _TestOpInfo(
+        op="v_len_neq",
+        reverse_op="v_len_eq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_gt": _TestOpInfo(
+        op="v_len_gt",
+        reverse_op="v_len_lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_lte": _TestOpInfo(
+        op="v_len_lte",
+        reverse_op="v_len_gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_lt": _TestOpInfo(
+        op="v_len_lt",
+        reverse_op="v_len_gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_len_gte": _TestOpInfo(
+        op="v_len_gte",
+        reverse_op="v_len_lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_eq": _TestOpInfo(
+        op="v_num_eq",
+        reverse_op="v_num_neq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_neq": _TestOpInfo(
+        op="v_num_neq",
+        reverse_op="v_num_eq",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_gt": _TestOpInfo(
+        op="v_num_gt",
+        reverse_op="v_num_lte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_lte": _TestOpInfo(
+        op="v_num_lte",
+        reverse_op="v_num_gt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_lt": _TestOpInfo(
+        op="v_num_lt",
+        reverse_op="v_num_gte",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_num_gte": _TestOpInfo(
+        op="v_num_gte",
+        reverse_op="v_num_lt",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
     # ----------
-    "x/map_value_in": _TestOpInfo("x/map_value_in", "x/map_value_nin", None, 2, 1),
-    "x/map_value_nin": _TestOpInfo("x/map_value_nin", "x/map_value_in", None, 2, 1),
+    "x/map_value_in": _TestOpInfo(
+        op="x/map_value_in",
+        reverse_op="x/map_value_nin",
+        min_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map_value_nin": _TestOpInfo(
+        op="x/map_value_nin",
+        reverse_op="x/map_value_in",
+        min_number_of_values=2,
+        number_of_subkeys=1,
+    ),
     "x/map_value_eq": _TestOpInfo(
-        "x/map_value_eq", "x/map_value_neq", "x/map_value_in", 2, 1
+        op="x/map_value_eq",
+        reverse_op="x/map_value_neq",
+        alternative_op="x/map_value_in",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_neq": _TestOpInfo(
-        "x/map_value_neq", "x/map_value_eq", "x/map_value_nin", 2, 1
+        op="x/map_value_neq",
+        reverse_op="x/map_value_eq",
+        alternative_op="x/map_value_nin",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
-    "x/map_value_gt": _TestOpInfo("x/map_value_gt", "x/map_value_lte", None, 2, 1),
-    "x/map_value_lte": _TestOpInfo("x/map_value_lte", "x/map_value_gt", None, 2, 1),
-    "x/map_value_lt": _TestOpInfo("x/map_value_lt", "x/map_value_gte", None, 2, 1),
-    "x/map_value_gte": _TestOpInfo("x/map_value_gte", "x/map_value_lt", None, 2, 1),
+    "x/map_value_gt": _TestOpInfo(
+        op="x/map_value_gt",
+        reverse_op="x/map_value_lte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map_value_lte": _TestOpInfo(
+        op="x/map_value_lte",
+        reverse_op="x/map_value_gt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map_value_lt": _TestOpInfo(
+        op="x/map_value_lt",
+        reverse_op="x/map_value_gte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map_value_gte": _TestOpInfo(
+        op="x/map_value_gte",
+        reverse_op="x/map_value_lt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
     "x/map_value_len_eq": _TestOpInfo(
-        "x/map_value_len_eq", "x/map_value_len_neq", None, 2, 1
+        op="x/map_value_len_eq",
+        reverse_op="x/map_value_len_neq",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_len_neq": _TestOpInfo(
-        "x/map_value_len_neq", "x/map_value_len_eq", None, 2, 1
+        op="x/map_value_len_neq",
+        reverse_op="x/map_value_len_eq",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_len_gt": _TestOpInfo(
-        "x/map_value_len_gt", "x/map_value_len_lte", None, 2, 1
+        op="x/map_value_len_gt",
+        reverse_op="x/map_value_len_lte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_len_lte": _TestOpInfo(
-        "x/map_value_len_lte", "x/map_value_len_gt", None, 2, 1
+        op="x/map_value_len_lte",
+        reverse_op="x/map_value_len_gt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_len_lt": _TestOpInfo(
-        "x/map_value_len_lt", "x/map_value_len_gte", None, 2, 1
+        op="x/map_value_len_lt",
+        reverse_op="x/map_value_len_gte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_len_gte": _TestOpInfo(
-        "x/map_value_len_gte", "x/map_value_len_lt", None, 2, 1
+        op="x/map_value_len_gte",
+        reverse_op="x/map_value_len_lt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_eq": _TestOpInfo(
-        "x/map_value_num_eq", "x/map_value_num_neq", None, 2, 1
+        op="x/map_value_num_eq",
+        reverse_op="x/map_value_num_neq",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_neq": _TestOpInfo(
-        "x/map_value_num_neq", "x/map_value_num_eq", None, 2, 1
+        op="x/map_value_num_neq",
+        reverse_op="x/map_value_num_eq",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_gt": _TestOpInfo(
-        "x/map_value_num_gt", "x/map_value_num_lte", None, 2, 1
+        op="x/map_value_num_gt",
+        reverse_op="x/map_value_num_lte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_lte": _TestOpInfo(
-        "x/map_value_num_lte", "x/map_value_num_gt", None, 2, 1
+        op="x/map_value_num_lte",
+        reverse_op="x/map_value_num_gt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_lt": _TestOpInfo(
-        "x/map_value_num_lt", "x/map_value_num_gte", None, 2, 1
+        op="x/map_value_num_lt",
+        reverse_op="x/map_value_num_gte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
     "x/map_value_num_gte": _TestOpInfo(
-        "x/map_value_num_gte", "x/map_value_num_lt", None, 2, 1
+        op="x/map_value_num_gte",
+        reverse_op="x/map_value_num_lt",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
     ),
 }
 
@@ -784,11 +1165,21 @@ class UnknownTestOpError(Error):
         super().__init__(source_location, f"unknown test operation {repr(test_op)}")
 
 
-class MoreTestOpValuesRequiredError(Error):
+class InsufficientTestOpValuesError(Error):
     def __init__(
         self, source_location: SourceLocation, test_op_info: _TestOpInfo
     ) -> None:
         super().__init__(
             source_location,
             f"test operation {repr(test_op_info.op)} requires at least {test_op_info.min_number_of_values} values",
+        )
+
+
+class TooManyTestOpValuesError(Error):
+    def __init__(
+        self, source_location: SourceLocation, test_op_info: _TestOpInfo
+    ) -> None:
+        super().__init__(
+            source_location,
+            f"test operation {repr(test_op_info.op)} accepts at most {test_op_info.max_number_of_values} values",
         )
