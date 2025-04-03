@@ -602,12 +602,12 @@ class _P3Analyzer:
                 (False, "len_neq"),
                 (True, "num_eq"),
                 (False, "num_neq"),
-                (True, "x/map_value_in"),
-                (False, "x/map_value_nin"),
-                (True, "x/map_value_len_eq"),
-                (False, "x/map_value_len_neq"),
-                (True, "x/map_value_num_eq"),
-                (False, "x/map_value_num_neq"),
+                (True, "x/map/elem_in"),
+                (False, "x/map/elem_nin"),
+                (True, "x/map/elem_len_eq"),
+                (False, "x/map/elem_len_neq"),
+                (True, "x/map/elem_num_eq"),
+                (False, "x/map/elem_num_neq"),
             ):
                 distinct_x_values = set(test_expr_x.real_values())
 
@@ -664,8 +664,8 @@ class _P3Analyzer:
             if (test_expr_x.is_positive, test_expr_x.op) in (
                 (True, "in"),
                 (False, "nin"),
-                (True, "x/map_value_in"),
-                (False, "x/map_value_nin"),
+                (True, "x/map/elem_in"),
+                (False, "x/map/elem_nin"),
             ):
                 for j, test_expr_y in enumerate(test_exprs):
                     if j == i or j not in small_test_exprs.keys():
@@ -708,8 +708,8 @@ class _P3Analyzer:
             if (test_expr_x.is_positive, test_expr_x.op) in (
                 (False, "in"),
                 (True, "nin"),
-                (False, "x/map_value_in"),
-                (True, "x/map_value_nin"),
+                (False, "x/map/elem_in"),
+                (True, "x/map/elem_nin"),
             ):
                 for j, test_expr_y in enumerate(test_exprs):
                     if j == i or j not in small_test_exprs.keys():
@@ -989,142 +989,142 @@ _test_op_infos: dict[str, _TestOpInfo] = {
         max_number_of_values=1,
     ),
     # ----------
-    "x/map_value_in": _TestOpInfo(
-        op="x/map_value_in",
-        reverse_op="x/map_value_nin",
+    "x/map/elem_in": _TestOpInfo(
+        op="x/map/elem_in",
+        reverse_op="x/map/elem_nin",
         min_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_nin": _TestOpInfo(
-        op="x/map_value_nin",
-        reverse_op="x/map_value_in",
+    "x/map/elem_nin": _TestOpInfo(
+        op="x/map/elem_nin",
+        reverse_op="x/map/elem_in",
         min_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_eq": _TestOpInfo(
-        op="x/map_value_eq",
-        reverse_op="x/map_value_neq",
-        alternative_op="x/map_value_in",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map_value_neq": _TestOpInfo(
-        op="x/map_value_neq",
-        reverse_op="x/map_value_eq",
-        alternative_op="x/map_value_nin",
+    "x/map/elem_eq": _TestOpInfo(
+        op="x/map/elem_eq",
+        reverse_op="x/map/elem_neq",
+        alternative_op="x/map/elem_in",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_gt": _TestOpInfo(
-        op="x/map_value_gt",
-        reverse_op="x/map_value_lte",
+    "x/map/elem_neq": _TestOpInfo(
+        op="x/map/elem_neq",
+        reverse_op="x/map/elem_eq",
+        alternative_op="x/map/elem_nin",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_lte": _TestOpInfo(
-        op="x/map_value_lte",
-        reverse_op="x/map_value_gt",
+    "x/map/elem_gt": _TestOpInfo(
+        op="x/map/elem_gt",
+        reverse_op="x/map/elem_lte",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_lt": _TestOpInfo(
-        op="x/map_value_lt",
-        reverse_op="x/map_value_gte",
+    "x/map/elem_lte": _TestOpInfo(
+        op="x/map/elem_lte",
+        reverse_op="x/map/elem_gt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_gte": _TestOpInfo(
-        op="x/map_value_gte",
-        reverse_op="x/map_value_lt",
+    "x/map/elem_lt": _TestOpInfo(
+        op="x/map/elem_lt",
+        reverse_op="x/map/elem_gte",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_eq": _TestOpInfo(
-        op="x/map_value_len_eq",
-        reverse_op="x/map_value_len_neq",
+    "x/map/elem_gte": _TestOpInfo(
+        op="x/map/elem_gte",
+        reverse_op="x/map/elem_lt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_neq": _TestOpInfo(
-        op="x/map_value_len_neq",
-        reverse_op="x/map_value_len_eq",
+    "x/map/elem_len_eq": _TestOpInfo(
+        op="x/map/elem_len_eq",
+        reverse_op="x/map/elem_len_neq",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_gt": _TestOpInfo(
-        op="x/map_value_len_gt",
-        reverse_op="x/map_value_len_lte",
+    "x/map/elem_len_neq": _TestOpInfo(
+        op="x/map/elem_len_neq",
+        reverse_op="x/map/elem_len_eq",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_lte": _TestOpInfo(
-        op="x/map_value_len_lte",
-        reverse_op="x/map_value_len_gt",
+    "x/map/elem_len_gt": _TestOpInfo(
+        op="x/map/elem_len_gt",
+        reverse_op="x/map/elem_len_lte",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_lt": _TestOpInfo(
-        op="x/map_value_len_lt",
-        reverse_op="x/map_value_len_gte",
+    "x/map/elem_len_lte": _TestOpInfo(
+        op="x/map/elem_len_lte",
+        reverse_op="x/map/elem_len_gt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_len_gte": _TestOpInfo(
-        op="x/map_value_len_gte",
-        reverse_op="x/map_value_len_lt",
+    "x/map/elem_len_lt": _TestOpInfo(
+        op="x/map/elem_len_lt",
+        reverse_op="x/map/elem_len_gte",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_eq": _TestOpInfo(
-        op="x/map_value_num_eq",
-        reverse_op="x/map_value_num_neq",
+    "x/map/elem_len_gte": _TestOpInfo(
+        op="x/map/elem_len_gte",
+        reverse_op="x/map/elem_len_lt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_neq": _TestOpInfo(
-        op="x/map_value_num_neq",
-        reverse_op="x/map_value_num_eq",
+    "x/map/elem_num_eq": _TestOpInfo(
+        op="x/map/elem_num_eq",
+        reverse_op="x/map/elem_num_neq",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_gt": _TestOpInfo(
-        op="x/map_value_num_gt",
-        reverse_op="x/map_value_num_lte",
+    "x/map/elem_num_neq": _TestOpInfo(
+        op="x/map/elem_num_neq",
+        reverse_op="x/map/elem_num_eq",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_lte": _TestOpInfo(
-        op="x/map_value_num_lte",
-        reverse_op="x/map_value_num_gt",
+    "x/map/elem_num_gt": _TestOpInfo(
+        op="x/map/elem_num_gt",
+        reverse_op="x/map/elem_num_lte",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_lt": _TestOpInfo(
-        op="x/map_value_num_lt",
-        reverse_op="x/map_value_num_gte",
+    "x/map/elem_num_lte": _TestOpInfo(
+        op="x/map/elem_num_lte",
+        reverse_op="x/map/elem_num_gt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
     ),
-    "x/map_value_num_gte": _TestOpInfo(
-        op="x/map_value_num_gte",
-        reverse_op="x/map_value_num_lt",
+    "x/map/elem_num_lt": _TestOpInfo(
+        op="x/map/elem_num_lt",
+        reverse_op="x/map/elem_num_gte",
+        min_number_of_values=2,
+        max_number_of_values=2,
+        number_of_subkeys=1,
+    ),
+    "x/map/elem_num_gte": _TestOpInfo(
+        op="x/map/elem_num_gte",
+        reverse_op="x/map/elem_num_lt",
         min_number_of_values=2,
         max_number_of_values=2,
         number_of_subkeys=1,
