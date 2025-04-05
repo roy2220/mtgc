@@ -31,7 +31,7 @@ type Statement = "ReturnStatement | IfStatement | SwitchStatement"
 @dataclass
 class ReturnStatement:
     source_location: SourceLocation
-    transform: dict
+    transform: list[dict]
     transform_annotation: str
 
     def accept_visit(self, visitor: "Visitor") -> None:
@@ -318,7 +318,7 @@ class Parser:
         transform_annotation = self._get_string()
         return ReturnStatement(source_location, transform, transform_annotation)
 
-    def _get_transform(self) -> dict:
+    def _get_transform(self) -> list[dict]:
         transform_literal, source_location = self._get_string_with_source_location()
 
         try:
@@ -350,7 +350,7 @@ class Parser:
                         key_index = self._key_2_index.get(key)
                         if key_index is None:
                             raise UnknownKeyError(source_location, key)
-                        underlying_from.append(key_index)
+                        underlying_from.append(int(key_index))
                     operator["underlying_from"] = underlying_from
 
                 op_type = operator.get("op_type")

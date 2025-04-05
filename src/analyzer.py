@@ -1,5 +1,4 @@
 import dataclasses
-import json
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
@@ -41,7 +40,7 @@ class Unit:
 class ReturnPoint:
     or_expr: "OrExpr"
     file_offset: int
-    transform: dict
+    transform: list[dict]
     transform_annotation: str
 
 
@@ -219,7 +218,7 @@ class _P2ReturnPoints:
 @dataclass
 class _P2ReturnPoint:
     file_offset: int
-    transform: dict
+    transform: list[dict]
     transform_annotation: str
     condiction: boolalg.Boolean
 

@@ -5,6 +5,7 @@ import sys
 
 from src.analyzer import Analyzer, Component
 from src.excel_generator import ExcelGenerator
+from src.match_transform_generator import MatchTransformGenerator
 from src.parser import Parser
 from src.scanner import Scanner
 
@@ -20,6 +21,14 @@ def main() -> None:
         help="output excel file",
     )
     parser.add_argument(
+        "-m",
+        metavar="DIR",
+        nargs=1,
+        type=str,
+        required=True,
+        help="output dir for match-transform files",
+    )
+    parser.add_argument(
         "DIR",
         nargs=1,
         type=str,
@@ -28,6 +37,7 @@ def main() -> None:
     namespace = parser.parse_args(sys.argv[1:])
     mtg_dir_name = namespace.DIR[0]
     excel_file_name = namespace.e[0]
+    match_transform_dir_name = namespace.m[0]
     mtg_file_names = glob.glob(os.path.join(mtg_dir_name, "*.mtg"))
     mtg_file_names.sort()
 
@@ -44,6 +54,11 @@ def main() -> None:
 
     excel_generator = ExcelGenerator(components, excel_file_name)
     excel_generator.dump_components()
+
+    match_transform_generator = MatchTransformGenerator(
+        components, match_transform_dir_name
+    )
+    match_transform_generator.dump_components()
 
 
 if __name__ == "__main__":
