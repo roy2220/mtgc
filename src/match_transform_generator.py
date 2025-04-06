@@ -46,9 +46,9 @@ class MatchTransformGenerator:
         unit_2 = {
             "__comment__": f"{component.alias}: {unit.alias}",
             "tree": {
-                "has_next": False,
-                "key": 0,
-                "tree": None,
+                # "has_next": False,
+                # "key": 0,
+                # "tree": None,
                 "default_target_value_index": 0,
                 "match": match_list,
             },
@@ -73,20 +73,20 @@ class MatchTransformGenerator:
             condition = {
                 "__comment__": "; ".join(tags),
                 "key": test_expr.key_index,
-                "__key__": test_expr.key,
+                "__named_key__": test_expr.key,
                 "values": test_expr.underlying_values,
-                "__values__": test_expr.values,
+                "__named_values__": test_expr.values,
                 "operator": (
                     test_expr.op if test_expr.is_positive else test_expr.reverse_op
                 ),
             }
             if test_expr.values == test_expr.underlying_values:
-                condition.pop("__values__")
+                condition.pop("__named_values__")
             condition_list.append(condition)
 
         match = {
-            "has_next": False,
-            "tree": None,
+            # "has_next": False,
+            # "tree": None,
             "condition_node": {
                 "condition": condition_list,
                 "condition_type": 0,  # AND
@@ -108,20 +108,20 @@ class MatchTransformGenerator:
 
                 if (v := operator.get("underlying_from")) is not None:
                     operator_2["from"] = v
-                    operator_2["__from__"] = operator["from"]
+                    operator_2["__named_from__"] = operator["from"]
 
                 if (v := operator.get("values")) is not None:
                     operator_2["values"] = v
 
                 if (v := operator.get("underlying_op_type")) is not None:
                     operator_2["op_type"] = v
-                    operator_2["__op_type__"] = operator["op_type"]
+                    operator_2["__named_op_type__"] = operator["op_type"]
 
                 operators.append(operator_2)
 
             transform_item_2 = {
                 "to": transform_item["underlying_to"],
-                "__to__": transform_item["to"],
+                "__named_to__": transform_item["to"],
                 "operators": operators,
             }
             transform_items.append(transform_item_2)
