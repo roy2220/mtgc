@@ -570,23 +570,34 @@ class _P3Analyzer:
 
     @classmethod
     def _reduce_and_exprs(cls, and_exprs: list[AndExpr]) -> list[AndExpr] | None:
-        small_and_exprs: list[AndExpr] = []
+        test_expr_key_sets: dict[int, set[int]] = {}
+        small_and_exprs: dict[int, AndExpr] = {}
 
-        for and_expr in and_exprs:
+        for i, and_expr in enumerate(and_exprs):
             test_exprs = cls._reduce_test_exprs(and_expr.test_exprs)
             if test_exprs is None:
                 continue
 
-            new_and_expr = dataclasses.replace(and_expr, test_exprs=test_exprs)
-            if new_and_expr in small_and_exprs:
+            test_expr_key_sets[i] = set(cls._make_test_expr_keys(test_exprs))
+            test_exprs = cls._merge_test_exprs(test_exprs)
+            small_and_exprs[i] = dataclasses.replace(and_expr, test_exprs=test_exprs)
+
+        for i in range(0, len(and_exprs)):
+            if i not in test_expr_key_sets.keys():
                 continue
 
-            small_and_exprs.append(new_and_expr)
+            for j in range(0, len(and_exprs)):
+                if j == i or j not in test_expr_key_sets.keys():
+                    continue
+
+                if test_expr_key_sets[i].issubset(test_expr_key_sets[j]):
+                    test_expr_key_sets.pop(j)
+                    small_and_exprs.pop(j)
 
         if len(small_and_exprs) == 0:
             return None
 
-        return small_and_exprs
+        return list(small_and_exprs.values())
 
     @classmethod
     def _reduce_test_exprs(cls, test_exprs: list[TestExpr]) -> list[TestExpr] | None:
@@ -643,20 +654,40 @@ class _P3Analyzer:
                         ),
                     ):
                         if distinct_x_values.issuperset(test_expr_y.real_values()):
+                            # `in[a, b, c]` vs `in[a, b]`
                             # remove duplicate
                             small_test_exprs.pop(j)
                             continue
                         elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
+                            # `in[a, b]` vs `in[c]`
                             # conflict
                             return None
+                        # `in[a, b]` vs `in[a, c]`
                     else:
                         if distinct_x_values.issubset(test_expr_y.real_values()):
+                            # `in[a, b]` vs `nin[a, b, c]`
                             # conflict
                             return None
                         elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
+                            # `in[a, b]` vs `nin[c]`
                             # remove unused
                             small_test_exprs.pop(j)
                             continue
+                        # `in[a, b]` vs `nin[a, c]`
+
+        return list(small_test_exprs.values())
+
+    @classmethod
+    def _make_test_expr_keys(cls, test_exprs: list[TestExpr]) -> Iterator[int]:
+        for test_expr in test_exprs:
+            if test_expr.is_positive:
+                yield test_expr.symbol_id
+            else:
+                yield -test_expr.symbol_id
+
+    @classmethod
+    def _merge_test_exprs(cls, test_exprs: list[TestExpr]) -> list[TestExpr]:
+        small_test_exprs = dict(enumerate(test_exprs))
 
         # merge phase 1
         for i, test_expr_x in enumerate(test_exprs):
@@ -689,13 +720,13 @@ class _P3Analyzer:
                                 test_expr_x.reverse_op,
                             ),
                         ):
-                            # merge `in` into `in`
+                            # merge `in[a, c]` into `in[a, b]`
                             test_expr_x.values.extend(test_expr_y.real_values())
                             test_expr_x.underlying_values.extend(
                                 test_expr_y.real_underlying_values()
                             )
                         else:
-                            # merge `nin` into `in`
+                            # merge `nin[a, c]` into `in[a, b]`
                             cls._remove_real_values(
                                 test_expr_x, set(test_expr_y.real_values())
                             )
@@ -730,7 +761,7 @@ class _P3Analyzer:
                     ) and tuple(test_expr_y.virtual_key()) == tuple(
                         test_expr_x.virtual_key()
                     ):
-                        # merge `nin` into `nin`
+                        # merge `nin[a, c]` into `nin[a, b]`
                         test_expr_x.values.extend(test_expr_y.real_values())
                         test_expr_x.underlying_values.extend(
                             test_expr_y.real_underlying_values()
