@@ -435,22 +435,34 @@ class _P2Analyzer(Visitor):
 
             case OpType.LOGICAL_OR:
                 composite_condiction.condiction1.accept_visit(self)
+                a = self._condiction_stack.pop()
                 assert composite_condiction.condiction2 is not None
                 composite_condiction.condiction2.accept_visit(self)
+                b = self._condiction_stack.pop()
 
-                condiction = self._condiction_stack.pop()
-                self._condiction_stack[-1] = boolalg.Or(
-                    self._condiction_stack[-1], condiction
+                self._condiction_stack.append(
+                    boolalg.Or(
+                        a,
+                        boolalg.And(
+                            boolalg.Not(a), b
+                        ),  # why not just b? make it easy for _P3Analyzer._reduce_test_exprs
+                    )
                 )
 
             case OpType.LOGICAL_AND:
                 composite_condiction.condiction1.accept_visit(self)
+                a = self._condiction_stack.pop()
                 assert composite_condiction.condiction2 is not None
                 composite_condiction.condiction2.accept_visit(self)
+                b = self._condiction_stack.pop()
 
-                condiction = self._condiction_stack.pop()
-                self._condiction_stack[-1] = boolalg.And(
-                    self._condiction_stack[-1], condiction
+                self._condiction_stack.append(
+                    boolalg.And(
+                        a,
+                        boolalg.Or(
+                            boolalg.Not(a), b
+                        ),  # why not just b? make it easy for _P3Analyzer._reduce_test_exprs
+                    )
                 )
 
             case _:
