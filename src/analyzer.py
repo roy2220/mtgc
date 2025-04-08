@@ -441,12 +441,8 @@ class _P2Analyzer(Visitor):
                 b = self._condiction_stack.pop()
 
                 self._condiction_stack.append(
-                    boolalg.Or(
-                        a,
-                        boolalg.And(
-                            boolalg.Not(a), b
-                        ),  # why not just b? make it easy for _P3Analyzer._reduce_test_exprs
-                    )
+                    boolalg.Or(a, boolalg.And(boolalg.Not(a), b))
+                    # use `a or ((not a) and b)` instead of `a or b` to make it easy for _P3Analyzer._reduce_test_exprs
                 )
 
             case OpType.LOGICAL_AND:
@@ -457,12 +453,8 @@ class _P2Analyzer(Visitor):
                 b = self._condiction_stack.pop()
 
                 self._condiction_stack.append(
-                    boolalg.And(
-                        a,
-                        boolalg.Or(
-                            boolalg.Not(a), b
-                        ),  # why not just b? make it easy for _P3Analyzer._reduce_test_exprs
-                    )
+                    boolalg.And(a, boolalg.Or(boolalg.Not(a), b))
+                    # use `a and ((not a) or b)` instead of `a and b` to make it easy for _P3Analyzer._reduce_test_exprs
                 )
 
             case _:
