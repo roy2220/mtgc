@@ -130,7 +130,9 @@ class Analyzer:
         p1_analyzer = _P1Analyzer(unit_declaration)
         p2_analyzer = _P2Analyzer(p1_analyzer.get_program_link())
         p3_analyzer = _P3Analyzer(p2_analyzer.get_return_points())
-        return p3_analyzer.simplify_return_points(self._reduce_return_points)
+        return_points = p3_analyzer.simplify_return_points(self._reduce_return_points)
+        _P4Analyzer(unit_declaration, return_points).check_return_statements()
+        return return_points
 
 
 class _P1Analyzer(Visitor):
@@ -802,6 +804,51 @@ class _P3Analyzer:
         del test_expr.underlying_values[i:]
 
 
+class _P4Analyzer(Visitor):
+    __slots__ = (
+        "_unit_declaration",
+        "_return_point_file_offsets",
+    )
+
+    def __init__(
+        self, unit_declaration: UnitDeclaration, return_points: list[ReturnPoint]
+    ) -> None:
+        self._unit_declaration = unit_declaration
+        self._return_point_file_offsets: set[int] = set()
+        for return_point in return_points:
+            self._return_point_file_offsets.add(return_point.file_offset)
+
+    def check_return_statements(self) -> None:
+        for statement in self._unit_declaration.program:
+            statement.accept_visit(self)
+
+    def visit_if_statement(self, if_statement: IfStatement) -> None:
+        for statement in if_statement.body:
+            statement.accept_visit(self)
+
+        for else_if_clause in if_statement.else_if_clauses:
+            for statement in else_if_clause.body:
+                statement.accept_visit(self)
+
+        for statement in if_statement.else_clause.body:
+            statement.accept_visit(self)
+
+    def visit_switch_statement(self, switch_statement: SwitchStatement) -> None:
+        for case_clause in switch_statement.case_clauses:
+            for statement in case_clause.body:
+                statement.accept_visit(self)
+
+        for statement in switch_statement.default_case_clause.body:
+            statement.accept_visit(self)
+
+    def visit_return_statement(self, return_statement: ReturnStatement) -> None:
+        if (
+            return_statement.source_location.file_offset
+            not in self._return_point_file_offsets
+        ):
+            raise UnreachableReturnStatementError(return_statement.source_location)
+
+
 @dataclass
 class _TestOpInfo:
     op: str
@@ -1282,3 +1329,8 @@ class TooManyTestOpValuesError(Error):
             source_location,
             f"test operation {repr(test_op_info.op)} accepts at most {test_op_info.max_number_of_values} values",
         )
+
+
+class UnreachableReturnStatementError(Error):
+    def __init__(self, source_location: SourceLocation) -> None:
+        super().__init__(source_location, "unreachable return statement")
