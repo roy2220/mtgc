@@ -270,7 +270,7 @@ class _P2Analyzer(Visitor):
             if reverse_symbol is not None:
                 return boolalg.Not(reverse_symbol)
 
-            symbol_id = len(self._symbols)
+            symbol_id = 1 + len(self._symbols)
             symbol = sympy.Symbol(str(symbol_id))
             self._symbols[symbol_key] = symbol
             self._return_points.symbol_id_2_test_args[symbol_id] = test_args
