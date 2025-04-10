@@ -2,6 +2,7 @@ import enum
 import io
 import json
 import os
+import re
 from dataclasses import dataclass
 
 import jsonschema
@@ -31,11 +32,16 @@ type Statement = "ReturnStatement | IfStatement | SwitchStatement"
 @dataclass
 class ReturnStatement:
     source_location: SourceLocation
-    transform: list[dict]
-    transform_annotation: str
+    transform_list: list["Transform"]
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_return_statement(self)
+
+
+@dataclass
+class Transform:
+    spec: dict
+    annotation: str
 
 
 @dataclass
@@ -310,69 +316,112 @@ class Parser:
         source_location = self._get_expected_token(
             TokenType.RETURN_KEYWORD
         ).source_location
+        transform_list = self._get_transform_list()
+        return ReturnStatement(source_location, transform_list)
+
+    def _get_transform_list(self) -> list[Transform]:
+        if self._peek_token(1).type != TokenType.TRANSFORM_KEYWORD:
+            return []
+
+        transform_list: list[Transform] = []
+
+        while True:
+            transform_list.append(self._get_transform())
+
+            if self._peek_token(1).type != TokenType.COMMA:
+                break
+
+            self._discard_tokens(1)
+
+        return transform_list
+
+    def _get_transform(self) -> Transform:
         self._get_expected_token(TokenType.TRANSFORM_KEYWORD)
         self._get_expected_token(TokenType.OPEN_PAREN)
-        transform = self._get_transform()
+        transform_literal, source_location = self._get_string_with_source_location()
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
         transform_annotation = self._get_string()
-        return ReturnStatement(source_location, transform, transform_annotation)
-
-    def _get_transform(self) -> list[dict]:
-        transform_literal, source_location = self._get_string_with_source_location()
 
         try:
-            transform = json.loads(transform_literal)
+            transform_spec = json.loads(transform_literal)
         except Exception:
             raise InvalidTransformLiteralError(
                 source_location, transform_literal, "not a JSON"
             )
 
         try:
-            jsonschema.validate(transform, _transform_schema)
+            jsonschema.validate(transform_spec, _transform_schema)
         except Exception as e:
             raise InvalidTransformLiteralError(
                 source_location, transform_literal, str(e)
             )
 
-        for transform_item in transform:
-            key = transform_item["to"]
-            key_index = self._key_2_index.get(key)
-            if key_index is None:
-                raise UnknownKeyError(source_location, key)
-            transform_item["underlying_to"] = key_index
+        key = transform_spec["to"]
+        key_index = self._key_2_index.get(key)
+        if key_index is None:
+            raise UnknownKeyError(source_location, key)
+        transform_spec["underlying_to"] = key_index
 
-            for operator in transform_item["operators"]:
-                from1 = operator.get("from")
-                if from1 is not None:
-                    underlying_from: list[int] = []
-                    for key in from1:
-                        key_index = self._key_2_index.get(key)
-                        if key_index is None:
-                            raise UnknownKeyError(source_location, key)
-                        underlying_from.append(int(key_index))
-                    operator["underlying_from"] = underlying_from
+        for operator in transform_spec["operators"]:
+            if operator["op"] == "expr":
+                values = operator.get("values")
+                if values is not None and len(values) >= 1:
+                    underlying_values = values.copy()
+                    parts = re.split(
+                        r"(^|[^a-zA-Z0-9_])(GetFunc(?:Int|Float))(\()([^\)]+)(\))",
+                        underlying_values[0],
+                        flags=re.MULTILINE,
+                    )
+                    i = 0
+                    last_part = ""
+                    while i < len(parts):
+                        if parts[i] == "(" and last_part in (
+                            "GetFunc",
+                            "GetFuncInt",
+                            "GetFuncFloat",
+                        ):
+                            i += 1
+                            key = parts[i]
+                            key_index = self._key_2_index.get(key)
+                            if key_index is None:
+                                raise UnknownKeyError(source_location, key)
+                            parts[i] = str(key_index)
+                        else:
+                            i += 1
+                    underlying_values[0] = "".join(parts)
+                    operator["underlying_values"] = underlying_values
 
-                op_type = operator.get("op_type")
-                if op_type is not None:
-                    match op_type:
-                        case "any":
-                            underlying_op_type = 0
-                        case "bool":
-                            underlying_op_type = 1
-                        case "int":
-                            underlying_op_type = 2
-                        case "string":
-                            underlying_op_type = 3
-                        case "float":
-                            underlying_op_type = 4
-                        case _:
-                            underlying_op_type = self._key_2_index.get(op_type)
-                            if underlying_op_type is None:
-                                raise UnknownKeyError(source_location, op_type)
-                    operator["underlying_op_type"] = underlying_op_type
+            from1 = operator.get("from")
+            if from1 is not None:
+                underlying_from: list[int] = []
+                for key in from1:
+                    key_index = self._key_2_index.get(key)
+                    if key_index is None:
+                        raise UnknownKeyError(source_location, key)
+                    underlying_from.append(int(key_index))
+                operator["underlying_from"] = underlying_from
 
-        return transform
+            op_type = operator.get("op_type")
+            if op_type is not None:
+                match op_type:
+                    case "any":
+                        underlying_op_type = 0
+                    case "bool":
+                        underlying_op_type = 1
+                    case "int":
+                        underlying_op_type = 2
+                    case "string":
+                        underlying_op_type = 3
+                    case "float":
+                        underlying_op_type = 4
+                    case _:
+                        underlying_op_type = self._key_2_index.get(op_type)
+                        if underlying_op_type is None:
+                            raise UnknownKeyError(source_location, op_type)
+                operator["underlying_op_type"] = underlying_op_type
+
+        return Transform(transform_spec, transform_annotation)
 
     def _get_switch_statement(self) -> SwitchStatement:
         source_location = self._get_expected_token(
@@ -628,33 +677,30 @@ _key_index_info_list_schema = {
 }
 
 _transform_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "to": {"type": "string", "minLength": 1},
-            "operators": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "from": {
-                            "type": "array",
-                            "items": {"type": "string", "minLength": 1},
-                        },
-                        "op": {"type": "string", "minLength": 1},
-                        "values": {
-                            "type": "array",
-                            "items": {"type": "string", "minLength": 1},
-                        },
-                        "op_type": {"type": "string"},
+    "type": "object",
+    "properties": {
+        "to": {"type": "string", "minLength": 1},
+        "operators": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "from": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
                     },
-                    "required": ["op"],
+                    "op": {"type": "string", "minLength": 1},
+                    "values": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "op_type": {"type": "string"},
                 },
+                "required": ["op"],
             },
         },
-        "required": ["to"],
     },
+    "required": ["to"],
 }
 
 

@@ -98,19 +98,22 @@ class MatchTransformGenerator:
     def _dump_transform(
         self, return_point_index: int, return_point: ReturnPoint
     ) -> dict:
-        transform_items = []
+        transforms = []
 
-        for transform_item in return_point.transform:
+        for transform in return_point.transform_list:
             operators = []
 
-            for operator in transform_item["operators"]:
+            for operator in transform.spec["operators"]:
                 operator_2 = {"op": operator["op"]}
 
                 if (v := operator.get("underlying_from")) is not None:
                     operator_2["from"] = v
                     operator_2["__named_from__"] = operator["from"]
 
-                if (v := operator.get("values")) is not None:
+                if (v := operator.get("underlying_values")) is not None:
+                    operator_2["values"] = v
+                    operator_2["__named_values__"] = operator["values"]
+                elif (v := operator.get("values")) is not None:
                     operator_2["values"] = v
 
                 if (v := operator.get("underlying_op_type")) is not None:
@@ -119,15 +122,16 @@ class MatchTransformGenerator:
 
                 operators.append(operator_2)
 
-            transform_item_2 = {
-                "to": transform_item["underlying_to"],
-                "__named_to__": transform_item["to"],
+            transform_2 = {
+                "__comment__": transform.annotation,
+                "to": transform.spec["underlying_to"],
+                "__named_to__": transform.spec["to"],
                 "operators": operators,
             }
-            transform_items.append(transform_item_2)
+            transforms.append(transform_2)
 
         transform = {
-            "__comment__": f"[{return_point_index}] = {return_point.transform_annotation}",
-            "items": transform_items,
+            "__target_value_index__": {return_point_index},
+            "items": transforms,
         }
         return transform

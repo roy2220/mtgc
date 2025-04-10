@@ -16,6 +16,7 @@ from .parser import (
     Statement,
     SwitchStatement,
     TestCondiction,
+    Transform,
     UnitDeclaration,
     Visitor,
 )
@@ -41,8 +42,7 @@ class Unit:
 class ReturnPoint:
     or_expr: "OrExpr"
     file_offset: int
-    transform: list[dict]
-    transform_annotation: str
+    transform_list: list[Transform]
 
 
 @dataclass
@@ -221,8 +221,7 @@ class _P2ReturnPoints:
 @dataclass
 class _P2ReturnPoint:
     file_offset: int
-    transform: list[dict]
-    transform_annotation: str
+    transform_list: list[Transform]
     condiction: boolalg.Boolean
 
 
@@ -292,8 +291,7 @@ class _P2Analyzer(Visitor):
         if return_point is None:
             return_point = _P2ReturnPoint(
                 file_offset,
-                return_statement.transform,
-                return_statement.transform_annotation,
+                return_statement.transform_list,
                 condiction,
             )
             self._return_points.file_offset_2_item[file_offset] = return_point
@@ -486,8 +484,7 @@ class _P3Analyzer:
                 ReturnPoint(
                     or_expr,
                     raw_return_point.file_offset,
-                    raw_return_point.transform,
-                    raw_return_point.transform_annotation,
+                    raw_return_point.transform_list,
                 )
             )
 

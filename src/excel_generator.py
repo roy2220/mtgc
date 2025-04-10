@@ -6,6 +6,7 @@ from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Format
 
 from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
+from .parser import Transform
 
 
 class ExcelGenerator:
@@ -183,7 +184,7 @@ class ExcelGenerator:
                     "Business Scenario",
                     self._business_scenario_hdr_fmt,
                 )
-                self._worksheet.set_column(self._row_index, column_index, 70)
+                self._worksheet.set_column(self._row_index, column_index, 80)
             column_index += 1
 
             for j, input in enumerate(inputs):
@@ -260,8 +261,8 @@ class ExcelGenerator:
     def _gather_outputs(self, unit: Unit) -> list[str]:
         outputs: list[str] = []
         for return_point in unit.return_points:
-            for x in return_point.transform:
-                output = x["to"]
+            for transform in return_point.transform_list:
+                output = transform.spec["to"]
                 if output not in outputs:
                     outputs.append(output)
         return outputs
@@ -286,7 +287,7 @@ class ExcelGenerator:
                     self._row_index,
                     column_index,
                     self._make_business_scenario_text(
-                        and_exprs, return_point.transform_annotation
+                        and_exprs, return_point.transform_list
                     ),
                     self._business_scenario_cell_fmt,
                 )
@@ -311,14 +312,12 @@ class ExcelGenerator:
             # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
-                    transform_item_texts = []
-                    for transform_item in return_point.transform:
-                        output_2 = transform_item["to"]
+                    transform_texts = []
+                    for transform in return_point.transform_list:
+                        output_2 = transform.spec["to"]
                         if output_2 == output:
-                            transform_item_texts.append(
-                                self._make_transform_item_text(transform_item)
-                            )
-                    text = f"\nand\n".join(transform_item_texts)
+                            transform_texts.append(self._make_transform_text(transform))
+                    text = f"\nand\n".join(transform_texts)
                     self._merge_range(
                         first_row_index,
                         column_index,
@@ -332,7 +331,7 @@ class ExcelGenerator:
             self._row_index += 1
 
     def _make_business_scenario_text(
-        self, and_exprs: list[AndExpr], transform_annotation: str
+        self, and_exprs: list[AndExpr], transform_list: list[Transform]
     ) -> str:
         def make_tag(test_expr: TestExpr) -> str:
             if test_expr.is_positive:
@@ -340,8 +339,8 @@ class ExcelGenerator:
             else:
                 return "❌ " + test_expr.fact
 
-        lines = ["▶ " + transform_annotation]
-        for and_expr in and_exprs:
+        lines = ["▶ WHEN"]
+        for i, and_expr in enumerate(and_exprs):
             tags: list[str] = []
             for test_expr in and_expr.test_exprs:
                 tags.append(make_tag(test_expr))
@@ -349,12 +348,21 @@ class ExcelGenerator:
                     tags.append(make_tag(child_test_expr))
 
             if len(tags) == 0:
-                # always
+                lines[-1] += " - 无条件"
                 break
 
-            line_number = self._conceal_text(f"[{len(lines)}]")
+            line_number = self._conceal_text(f"[{i+1}]")
             line = f"{line_number} " + "; ".join(tags)
             lines.append(line)
+
+        lines.append("▶ THEN")
+        if len(transform_list) == 0:
+            lines[-1] += " - 无操作"
+        else:
+            for i, transform in enumerate(transform_list):
+                line_number = self._conceal_text(f"[{i+1}]")
+                line = f"{line_number} " + transform.annotation
+                lines.append(line)
 
         return "\n".join(lines)
 
@@ -374,9 +382,9 @@ class ExcelGenerator:
         parts.append(")")
         return " ".join(parts)
 
-    def _make_transform_item_text(self, transform_item: dict) -> str:
+    def _make_transform_text(self, transform: Transform) -> str:
         parts = []
-        for i, operator in enumerate(transform_item["operators"]):
+        for i, operator in enumerate(transform.spec["operators"]):
             if i >= 1:
                 parts.append("|")
 
