@@ -57,7 +57,7 @@ class ExcelGenerator:
         self._business_unit_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#BFBFBF",
+                "bg_color": "#D9D9D9",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
@@ -76,7 +76,7 @@ class ExcelGenerator:
         self._business_scenario_hdr_fmt = self._workbook.add_format(
             {
                 "align": "center",
-                "bg_color": "#BFBFBF",
+                "bg_color": "#D9D9D9",
                 "bold": True,
                 "border": True,
                 "font_size": 11,
