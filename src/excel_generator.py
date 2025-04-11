@@ -295,28 +295,36 @@ class ExcelGenerator:
 
             # When
             for input in inputs:
-                make_match_texts = []
+                match_texts = []
+                condition_tags = []
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
-                        make_match_texts.append(self._make_match_text(test_expr))
-                text = f"\nand\n".join(make_match_texts)
+                        match_texts.append(self._make_match_text(test_expr))
+                        condition_tags.extend(self._make_condition_tags(test_expr))
+                text = f"\nand\n".join(match_texts)
                 self._write_column(
                     self._row_index,
                     column_index,
                     text or "/",
                     self._cell_fmt,
                 )
+                if len(condition_tags) >= 1:
+                    self._write_comment(
+                        self._row_index, column_index, "; ".join(condition_tags)
+                    )
                 column_index += 1
 
             # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
                     transform_texts = []
+                    transform_annotations = []
                     for transform in return_point.transform_list:
                         output_2 = transform.spec["to"]
                         if output_2 == output:
                             transform_texts.append(self._make_transform_text(transform))
+                            transform_annotations.append(transform.annotation)
                     text = f"\nand\n".join(transform_texts)
                     self._merge_range(
                         first_row_index,
@@ -326,6 +334,12 @@ class ExcelGenerator:
                         text or "/",
                         self._cell_fmt,
                     )
+                    if len(transform_annotations) >= 1:
+                        self._write_comment(
+                            self._row_index,
+                            column_index,
+                            "; ".join(transform_annotations),
+                        )
                 column_index += 1
 
             self._row_index += 1
@@ -333,26 +347,18 @@ class ExcelGenerator:
     def _make_business_scenario_text(
         self, and_exprs: list[AndExpr], transform_list: list[Transform]
     ) -> str:
-        def make_tag(test_expr: TestExpr) -> str:
-            if test_expr.is_positive:
-                return "✅ " + test_expr.fact
-            else:
-                return "❌ " + test_expr.fact
-
         lines = ["▶ WHEN"]
         for i, and_expr in enumerate(and_exprs):
-            tags: list[str] = []
+            condition_tags: list[str] = []
             for test_expr in and_expr.test_exprs:
-                tags.append(make_tag(test_expr))
-                for child_test_expr in test_expr.children:
-                    tags.append(make_tag(child_test_expr))
+                condition_tags.extend(self._make_condition_tags(test_expr))
 
-            if len(tags) == 0:
+            if len(condition_tags) == 0:
                 lines[-1] += " - 无条件"
                 break
 
             line_number = self._conceal_text(f"[{i+1}]")
-            line = f"{line_number} " + "; ".join(tags)
+            line = f"{line_number} " + "; ".join(condition_tags)
             lines.append(line)
 
         lines.append("▶ THEN")
@@ -365,6 +371,18 @@ class ExcelGenerator:
                 lines.append(line)
 
         return "\n".join(lines)
+
+    def _make_condition_tags(self, test_expr: TestExpr) -> list[str]:
+        def make_condition_tag(test_expr: TestExpr) -> str:
+            if test_expr.is_positive:
+                return "✅ " + test_expr.fact
+            else:
+                return "❌ " + test_expr.fact
+
+        condition_tags = [make_condition_tag(test_expr)]
+        for child_test_expr in test_expr.children:
+            condition_tags.append(make_condition_tag(child_test_expr))
+        return condition_tags
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
         parts = []
@@ -466,6 +484,9 @@ class ExcelGenerator:
             )
         else:
             self._worksheet.write_column(row, col, [text], format)
+
+    def _write_comment(self, row: int, col: int, comment: str) -> None:
+        self._worksheet.write_comment(row, col, comment)
 
     def _merge_range(
         self,
