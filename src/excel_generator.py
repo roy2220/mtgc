@@ -24,9 +24,9 @@ class ExcelGenerator:
         "_then_hdr_fmt",
         "_input_hdr_fmt",
         "_output_hdr_fmt",
-        "_default_fmt",
-        "_highlight_fmt",
-        "_conceal_fmt",
+        "_default_text_fmt",
+        "_highlight_text_fmt",
+        "_conceal_text_fmt",
         "_worksheet",
         "_row_index",
     )
@@ -50,7 +50,7 @@ class ExcelGenerator:
         self._cell_fmt = self._workbook.add_format(
             {
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "text_wrap": True,
                 "valign": "vcenter",
             }
@@ -61,7 +61,7 @@ class ExcelGenerator:
                 "bg_color": "#D9D9D9",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "valign": "vcenter",
             }
         )
@@ -69,7 +69,7 @@ class ExcelGenerator:
             {
                 "align": "center",
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "text_wrap": True,
                 "valign": "vcenter",
             }
@@ -80,14 +80,14 @@ class ExcelGenerator:
                 "bg_color": "#D9D9D9",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "valign": "vcenter",
             }
         )
         self._business_scenario_cell_fmt = self._workbook.add_format(
             {
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "text_wrap": True,
                 "valign": "vcenter",
             }
@@ -98,7 +98,7 @@ class ExcelGenerator:
                 "bg_color": "#F1C43D",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "valign": "vcenter",
             }
         )
@@ -108,7 +108,7 @@ class ExcelGenerator:
                 "bg_color": "#B5CE99",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "valign": "vcenter",
             }
         )
@@ -118,7 +118,7 @@ class ExcelGenerator:
                 "bg_color": "#F1C43D",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "text_wrap": True,
                 "valign": "vcenter",
             }
@@ -129,22 +129,22 @@ class ExcelGenerator:
                 "bg_color": "#B5CE99",
                 "bold": True,
                 "border": True,
-                "font_size": 11,
+                "font_size": 8,
                 "text_wrap": True,
                 "valign": "vcenter",
             }
         )
-        self._default_fmt = self._workbook.add_format()
-        self._highlight_fmt = self._workbook.add_format(
+        self._default_text_fmt = self._workbook.add_format({"font_size": 8})
+        self._highlight_text_fmt = self._workbook.add_format(
             {
                 "font_color": "#FF0000",
-                "font_size": 11,
+                "font_size": 8,
             }
         )
-        self._conceal_fmt = self._workbook.add_format(
+        self._conceal_text_fmt = self._workbook.add_format(
             {
                 "font_color": "#808080",
-                "font_size": 11,
+                "font_size": 8,
                 "italic": True,
             }
         )
@@ -295,28 +295,36 @@ class ExcelGenerator:
 
             # When
             for input in inputs:
-                make_match_texts = []
+                match_texts = []
+                condition_tags = []
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
-                        make_match_texts.append(self._make_match_text(test_expr))
-                text = f"\nand\n".join(make_match_texts)
+                        match_texts.append(self._make_match_text(test_expr))
+                        condition_tags.extend(self._make_condition_tags(test_expr))
+                text = f"\nand\n".join(match_texts)
                 self._write_column(
                     self._row_index,
                     column_index,
                     text or "/",
                     self._cell_fmt,
                 )
+                if len(condition_tags) >= 1:
+                    self._write_comment(
+                        self._row_index, column_index, "; ".join(condition_tags)
+                    )
                 column_index += 1
 
             # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
                     transform_texts = []
+                    transform_annotations = []
                     for transform in return_point.transform_list:
                         output_2 = transform.spec["to"]
                         if output_2 == output:
                             transform_texts.append(self._make_transform_text(transform))
+                            transform_annotations.append(transform.annotation)
                     text = f"\nand\n".join(transform_texts)
                     self._merge_range(
                         first_row_index,
@@ -326,6 +334,12 @@ class ExcelGenerator:
                         text or "/",
                         self._cell_fmt,
                     )
+                    if len(transform_annotations) >= 1:
+                        self._write_comment(
+                            self._row_index,
+                            column_index,
+                            "; ".join(transform_annotations),
+                        )
                 column_index += 1
 
             self._row_index += 1
@@ -333,38 +347,42 @@ class ExcelGenerator:
     def _make_business_scenario_text(
         self, and_exprs: list[AndExpr], transform_list: list[Transform]
     ) -> str:
-        def make_tag(test_expr: TestExpr) -> str:
+        lines = ["▶ WHEN"]
+        for i, and_expr in enumerate(and_exprs):
+            condition_tags: list[str] = []
+            for test_expr in and_expr.test_exprs:
+                condition_tags.extend(self._make_condition_tags(test_expr))
+
+            if len(condition_tags) == 0:
+                lines.append("[No condition]")
+                break
+
+            condition_number = self._conceal_text(f"[condition-{i+1}]")
+            line = f"{condition_number}  " + "; ".join(condition_tags)
+            lines.append(line)
+
+        lines.append("▶ THEN")
+        if len(transform_list) == 0:
+            lines.append("[No action]")
+        else:
+            for i, transform in enumerate(transform_list):
+                action_number = self._conceal_text(f"[action-{i+1}]")
+                line = f"{action_number}  " + transform.annotation
+                lines.append(line)
+
+        return "\n".join(lines)
+
+    def _make_condition_tags(self, test_expr: TestExpr) -> list[str]:
+        def make_condition_tag(test_expr: TestExpr) -> str:
             if test_expr.is_positive:
                 return "✅ " + test_expr.fact
             else:
                 return "❌ " + test_expr.fact
 
-        lines = ["▶ WHEN"]
-        for i, and_expr in enumerate(and_exprs):
-            tags: list[str] = []
-            for test_expr in and_expr.test_exprs:
-                tags.append(make_tag(test_expr))
-                for child_test_expr in test_expr.children:
-                    tags.append(make_tag(child_test_expr))
-
-            if len(tags) == 0:
-                lines[-1] += " - 无条件"
-                break
-
-            line_number = self._conceal_text(f"[{i+1}]")
-            line = f"{line_number} " + "; ".join(tags)
-            lines.append(line)
-
-        lines.append("▶ THEN")
-        if len(transform_list) == 0:
-            lines[-1] += " - 无操作"
-        else:
-            for i, transform in enumerate(transform_list):
-                line_number = self._conceal_text(f"[{i+1}]")
-                line = f"{line_number} " + transform.annotation
-                lines.append(line)
-
-        return "\n".join(lines)
+        condition_tags = [make_condition_tag(test_expr)]
+        for child_test_expr in test_expr.children:
+            condition_tags.append(make_condition_tag(child_test_expr))
+        return condition_tags
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
         parts = []
@@ -444,17 +462,17 @@ class ExcelGenerator:
 
             if self._color_mark in part:
                 if part.startswith("<hl:"):
-                    colorful_text.append(self._highlight_fmt)
+                    colorful_text.append(self._highlight_text_fmt)
                 elif part.startswith("<cc:"):
-                    colorful_text.append(self._conceal_fmt)
+                    colorful_text.append(self._conceal_text_fmt)
                 elif part.startswith("</"):
-                    colorful_text.append(self._default_fmt)
+                    colorful_text.append(self._default_text_fmt)
                 else:
                     assert False
             else:
                 colorful_text.append(part)
 
-        if colorful_text[-1] is self._default_fmt:
+        if colorful_text[-1] is self._default_text_fmt:
             colorful_text.pop()
 
         return colorful_text
@@ -466,6 +484,9 @@ class ExcelGenerator:
             )
         else:
             self._worksheet.write_column(row, col, [text], format)
+
+    def _write_comment(self, row: int, col: int, comment: str) -> None:
+        self._worksheet.write_comment(row, col, comment)
 
     def _merge_range(
         self,

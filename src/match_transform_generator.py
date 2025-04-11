@@ -131,7 +131,7 @@ class MatchTransformGenerator:
             transforms.append(transform_2)
 
         transform = {
-            "__target_value_index__": {return_point_index},
+            "__target_value_index__": return_point_index,
             "items": transforms,
         }
         return transform
