@@ -3,6 +3,7 @@ import os
 from collections.abc import Iterator
 
 from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
+from .test_op_infos import replace_with_real_op
 
 
 class MatchTransformGenerator:
@@ -70,15 +71,19 @@ class MatchTransformGenerator:
             for child_test_expr in test_expr.children:
                 tags.append(make_tag(child_test_expr))
 
+            if test_expr.is_positive:
+                op = test_expr.op
+            else:
+                op = test_expr.reverse_op
+            op = replace_with_real_op(op)
+
             condition = {
                 "__comment__": "; ".join(tags),
                 "key": test_expr.key_index,
                 "__named_key__": test_expr.key,
                 "values": test_expr.underlying_values,
                 "__named_values__": test_expr.values,
-                "operator": (
-                    test_expr.op if test_expr.is_positive else test_expr.reverse_op
-                ),
+                "operator": op,
             }
             if test_expr.values == test_expr.underlying_values:
                 condition.pop("__named_values__")

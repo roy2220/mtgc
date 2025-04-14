@@ -7,6 +7,7 @@ from xlsxwriter.worksheet import Format
 
 from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
 from .parser import Transform
+from .test_op_infos import replace_with_real_op
 
 
 class ExcelGenerator:
@@ -390,6 +391,7 @@ class ExcelGenerator:
             op = test_expr.op
         else:
             op = test_expr.reverse_op
+        op = replace_with_real_op(op)
 
         parts.append(self._hilight_text(op))
         parts.append("(")

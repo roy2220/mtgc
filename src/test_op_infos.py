@@ -1,4 +1,7 @@
+import json
 from dataclasses import dataclass
+
+import jsonschema
 
 
 @dataclass
@@ -6,39 +9,45 @@ class TestOpInfo:
     op: str
     reverse_op: str
 
-    multiple_op: str | None = None
-    single_op: str | None = None
     min_number_of_values: int = 0
     max_number_of_values: int | None = None
     number_of_subkeys: int = 0
+    equals_real_values: bool = False
+    unequals_real_values: bool = False
+    multiple_op: str | None = None
+    single_op: str | None = None
 
 
 test_op_infos: dict[str, TestOpInfo] = {
     "in": TestOpInfo(
         op="in",
         reverse_op="nin",
-        single_op="eq",
         min_number_of_values=1,
+        equals_real_values=True,
+        single_op="eq",
     ),
     "nin": TestOpInfo(
         op="nin",
         reverse_op="in",
-        single_op="neq",
         min_number_of_values=1,
+        unequals_real_values=True,
+        single_op="neq",
     ),
     "eq": TestOpInfo(
         op="eq",
         reverse_op="neq",
-        multiple_op="in",
         min_number_of_values=1,
         max_number_of_values=1,
+        equals_real_values=True,
+        multiple_op="in",
     ),
     "neq": TestOpInfo(
         op="neq",
         reverse_op="eq",
-        multiple_op="nin",
         min_number_of_values=1,
         max_number_of_values=1,
+        unequals_real_values=True,
+        multiple_op="nin",
     ),
     "gt": TestOpInfo(
         op="gt",
@@ -69,12 +78,14 @@ test_op_infos: dict[str, TestOpInfo] = {
         reverse_op="len_neq",
         min_number_of_values=1,
         max_number_of_values=1,
+        equals_real_values=True,
     ),
     "len_neq": TestOpInfo(
         op="len_neq",
         reverse_op="len_eq",
         min_number_of_values=1,
         max_number_of_values=1,
+        unequals_real_values=True,
     ),
     "len_gt": TestOpInfo(
         op="len_gt",
@@ -105,12 +116,14 @@ test_op_infos: dict[str, TestOpInfo] = {
         reverse_op="num_neq",
         min_number_of_values=1,
         max_number_of_values=1,
+        equals_real_values=True,
     ),
     "num_neq": TestOpInfo(
         op="num_neq",
         reverse_op="num_eq",
         min_number_of_values=1,
         max_number_of_values=1,
+        unequals_real_values=True,
     ),
     "num_gt": TestOpInfo(
         op="num_gt",
@@ -136,32 +149,43 @@ test_op_infos: dict[str, TestOpInfo] = {
         min_number_of_values=1,
         max_number_of_values=1,
     ),
-    # ----------
     "v_in": TestOpInfo(
         op="v_in",
         reverse_op="v_nin",
-        single_op="v_eq",
         min_number_of_values=1,
+        single_op="v_eq",
     ),
     "v_nin": TestOpInfo(
         op="v_nin",
         reverse_op="v_in",
-        single_op="v_neq",
         min_number_of_values=1,
+        single_op="v_neq",
+    ),
+    "v_in_list": TestOpInfo(
+        op="v_in_list",
+        reverse_op="v_nin_list",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_nin_list": TestOpInfo(
+        op="v_nin_list",
+        reverse_op="v_in_list",
+        min_number_of_values=1,
+        max_number_of_values=1,
     ),
     "v_eq": TestOpInfo(
         op="v_eq",
         reverse_op="v_neq",
-        multiple_op="v_in",
         min_number_of_values=1,
         max_number_of_values=1,
+        multiple_op="v_in",
     ),
     "v_neq": TestOpInfo(
         op="v_neq",
         reverse_op="v_eq",
-        multiple_op="v_nin",
         min_number_of_values=1,
         max_number_of_values=1,
+        multiple_op="v_nin",
     ),
     "v_gt": TestOpInfo(
         op="v_gt",
@@ -259,172 +283,56 @@ test_op_infos: dict[str, TestOpInfo] = {
         min_number_of_values=1,
         max_number_of_values=1,
     ),
-    # ----------
-    "x/string/regexp_like": TestOpInfo(
-        op="x/string/regexp_like",
-        reverse_op="x/string/regexp_unlike",
-        min_number_of_values=1,
-    ),
-    "x/string/regexp_unlike": TestOpInfo(
-        op="x/string/regexp_unlike",
-        reverse_op="x/string/regexp_like",
-        min_number_of_values=1,
-    ),
-    # ----------
-    "x/map/elem_in": TestOpInfo(
-        op="x/map/elem_in",
-        reverse_op="x/map/elem_nin",
-        single_op="x/map/elem_eq",
-        min_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_nin": TestOpInfo(
-        op="x/map/elem_nin",
-        reverse_op="x/map/elem_in",
-        single_op="x/map/elem_neq",
-        min_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_eq": TestOpInfo(
-        op="x/map/elem_eq",
-        reverse_op="x/map/elem_neq",
-        multiple_op="x/map/elem_in",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_neq": TestOpInfo(
-        op="x/map/elem_neq",
-        reverse_op="x/map/elem_eq",
-        multiple_op="x/map/elem_nin",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_gt": TestOpInfo(
-        op="x/map/elem_gt",
-        reverse_op="x/map/elem_lte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_lte": TestOpInfo(
-        op="x/map/elem_lte",
-        reverse_op="x/map/elem_gt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_lt": TestOpInfo(
-        op="x/map/elem_lt",
-        reverse_op="x/map/elem_gte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_gte": TestOpInfo(
-        op="x/map/elem_gte",
-        reverse_op="x/map/elem_lt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_eq": TestOpInfo(
-        op="x/map/elem_len_eq",
-        reverse_op="x/map/elem_len_neq",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_neq": TestOpInfo(
-        op="x/map/elem_len_neq",
-        reverse_op="x/map/elem_len_eq",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_gt": TestOpInfo(
-        op="x/map/elem_len_gt",
-        reverse_op="x/map/elem_len_lte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_lte": TestOpInfo(
-        op="x/map/elem_len_lte",
-        reverse_op="x/map/elem_len_gt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_lt": TestOpInfo(
-        op="x/map/elem_len_lt",
-        reverse_op="x/map/elem_len_gte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_len_gte": TestOpInfo(
-        op="x/map/elem_len_gte",
-        reverse_op="x/map/elem_len_lt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_eq": TestOpInfo(
-        op="x/map/elem_num_eq",
-        reverse_op="x/map/elem_num_neq",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_neq": TestOpInfo(
-        op="x/map/elem_num_neq",
-        reverse_op="x/map/elem_num_eq",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_gt": TestOpInfo(
-        op="x/map/elem_num_gt",
-        reverse_op="x/map/elem_num_lte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_lte": TestOpInfo(
-        op="x/map/elem_num_lte",
-        reverse_op="x/map/elem_num_gt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_lt": TestOpInfo(
-        op="x/map/elem_num_lt",
-        reverse_op="x/map/elem_num_gte",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/elem_num_gte": TestOpInfo(
-        op="x/map/elem_num_gte",
-        reverse_op="x/map/elem_num_lt",
-        min_number_of_values=2,
-        max_number_of_values=2,
-        number_of_subkeys=1,
-    ),
-    "x/map/has_key": TestOpInfo(
-        op="x/map/has_key",
-        reverse_op="x/map/has_not_key",
-        min_number_of_values=1,
-        max_number_of_values=1,
-        number_of_subkeys=1,
-    ),
-    "x/map/has_no_key": TestOpInfo(
-        op="x/map/has_no_key",
-        reverse_op="x/map/has_key",
-        min_number_of_values=1,
-        max_number_of_values=1,
-        number_of_subkeys=1,
-    ),
 }
+
+_custom_test_op_infos = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "op": {"type": "string", "minLength": 1},
+            "reverse_op": {"type": "string", "minLength": 1},
+            "min_number_of_values": {"type": "integer", "minimum": 0},
+            "max_number_of_values": {"type": "integer", "minimum": 0},
+            "number_of_subkeys": {"type": "integer", "minimum": 0},
+            "equals_real_values": {"type": "boolean"},
+            "unequals_real_values": {"type": "boolean"},
+            "multiple_op": {"type": "string", "minLength": 1},
+            "single_op": {"type": "string", "minLength": 1},
+        },
+        "required": ["op", "reverse_op"],
+    },
+}
+
+
+def load_custom_test_op_infos_from_file(file_name: str) -> None:
+    with open(file_name, "r") as f:
+        data = f.read()
+    try:
+        raw_custom_test_op_infos = json.loads(data)
+    except Exception:
+        raise InvalidCustomTestOpInfoDataError(f"{repr(file_name)} not a JSON file")
+
+    try:
+        jsonschema.validate(raw_custom_test_op_infos, _custom_test_op_infos)
+    except Exception as e:
+        raise InvalidCustomTestOpInfoDataError(str(e))
+
+    for raw_custom_test_op_info in raw_custom_test_op_infos:
+        test_op_infos[raw_custom_test_op_info["op"]] = TestOpInfo(
+            **raw_custom_test_op_info
+        )
+
+
+def replace_with_real_op(op: str) -> str:
+    match op:
+        case "v_in_list":
+            return "v_in"
+        case "v_nin_list":
+            return "v_nin"
+        case _:
+            return op
+
+
+class InvalidCustomTestOpInfoDataError(Exception):
+    pass

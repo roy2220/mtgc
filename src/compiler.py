@@ -3,11 +3,12 @@ import glob
 import os
 import sys
 
-from src.analyzer import Analyzer, Component
-from src.excel_generator import ExcelGenerator
-from src.match_transform_generator import MatchTransformGenerator
-from src.parser import Parser
-from src.scanner import Scanner
+from .analyzer import Analyzer, Component
+from .excel_generator import ExcelGenerator
+from .match_transform_generator import MatchTransformGenerator
+from .parser import Parser
+from .scanner import Scanner
+from .test_op_infos import load_custom_test_op_infos_from_file
 
 
 def main() -> None:
@@ -43,6 +44,12 @@ def main() -> None:
 
     if len(mtg_file_names) == 0:
         raise SystemExit(f"no mtg file found in {repr(mtg_dir_name)}")
+
+    custom_test_op_infos_file_name = os.path.join(
+        mtg_dir_name, ".custom_test_op_infos.json"
+    )
+    if os.path.exists(custom_test_op_infos_file_name):
+        load_custom_test_op_infos_from_file(custom_test_op_infos_file_name)
 
     components: list[Component] = []
     for mtg_file_name in mtg_file_names:

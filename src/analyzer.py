@@ -69,6 +69,8 @@ class TestExpr:
 
     reverse_op: str
     number_of_subkeys: int
+    equals_real_values: bool
+    unequals_real_values: bool
     children: list["TestExpr"]
 
     def virtual_key(self) -> Iterator[str]:
@@ -237,6 +239,8 @@ class _TestArgs:
 
     reverse_op: str
     number_of_subkeys: int
+    equals_real_values: bool
+    unequals_real_values: bool
 
 
 class _P2Analyzer(Visitor):
@@ -352,6 +356,8 @@ class _P2Analyzer(Visitor):
                     fact,
                     test_op_info.reverse_op,
                     test_op_info.number_of_subkeys,
+                    test_op_info.equals_real_values,
+                    test_op_info.unequals_real_values,
                 )
                 if condiction is None:
                     condiction = self._get_or_new_symbol(test_args)
@@ -423,6 +429,8 @@ class _P2Analyzer(Visitor):
             test_condiction.fact,
             test_op_info.reverse_op,
             test_op_info.number_of_subkeys,
+            test_op_info.equals_real_values,
+            test_op_info.unequals_real_values,
         )
         self._condiction_stack.append(self._get_or_new_symbol(test_args))
 
@@ -544,6 +552,8 @@ class _P3Analyzer:
             test_args.fact,
             test_args.reverse_op,
             test_args.number_of_subkeys,
+            test_args.equals_real_values,
+            test_args.unequals_real_values,
             [],
         )
 
@@ -611,22 +621,11 @@ class _P3Analyzer:
             if i not in small_test_exprs.keys():
                 continue
 
-            distinct_x_values = None
-            if (test_expr_x.is_positive, test_expr_x.op) in (
-                (True, "in"),
-                (False, "nin"),
-                (True, "len_eq"),
-                (False, "len_neq"),
-                (True, "num_eq"),
-                (False, "num_neq"),
-                (True, "x/map/elem_in"),
-                (False, "x/map/elem_nin"),
-                (True, "x/map/elem_len_eq"),
-                (False, "x/map/elem_len_neq"),
-                (True, "x/map/elem_num_eq"),
-                (False, "x/map/elem_num_neq"),
+            x_real_values = None
+            if (test_expr_x.is_positive and test_expr_x.equals_real_values) or (
+                not test_expr_x.is_positive and test_expr_x.unequals_real_values
             ):
-                distinct_x_values = set(test_expr_x.real_values())
+                x_real_values = set(test_expr_x.real_values())
 
             for j, test_expr_y in enumerate(test_exprs):
                 if j == i or j not in small_test_exprs.keys():
@@ -642,7 +641,7 @@ class _P3Analyzer:
                         return None
 
                 if (
-                    distinct_x_values is not None
+                    x_real_values is not None
                     and test_expr_y.op in (test_expr_x.op, test_expr_x.reverse_op)
                     and tuple(test_expr_y.virtual_key())
                     == tuple(test_expr_x.virtual_key())
@@ -657,22 +656,22 @@ class _P3Analyzer:
                             test_expr_x.reverse_op,
                         ),
                     ):
-                        if distinct_x_values.issuperset(test_expr_y.real_values()):
+                        if x_real_values.issuperset(test_expr_y.real_values()):
                             # `in[a, b, c]` vs `in[a, b]`
                             # remove duplicate
                             small_test_exprs.pop(j)
                             continue
-                        elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
+                        elif x_real_values.isdisjoint(test_expr_y.real_values()):
                             # `in[a, b]` vs `in[c]`
                             # conflict
                             return None
                         # `in[a, b]` vs `in[a, c]`
                     else:
-                        if distinct_x_values.issubset(test_expr_y.real_values()):
+                        if x_real_values.issubset(test_expr_y.real_values()):
                             # `in[a, b]` vs `nin[a, b, c]`
                             # conflict
                             return None
-                        elif distinct_x_values.isdisjoint(test_expr_y.real_values()):
+                        elif x_real_values.isdisjoint(test_expr_y.real_values()):
                             # `in[a, b]` vs `nin[c]`
                             # remove unused
                             small_test_exprs.pop(j)
