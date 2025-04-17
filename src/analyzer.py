@@ -529,11 +529,15 @@ class _P3Analyzer:
         for condiction2 in condiction.args:
             and_exprs.append(self._make_and_expr(condiction2))  # type: ignore
 
-        def file_offsets(and_expr: AndExpr) -> Iterator[int]:
+        def and_expr_rank(and_expr: AndExpr) -> Iterator[int]:
             for test_expr in and_expr.test_exprs:
+                if test_expr.is_positive:
+                    yield 1
+                else:
+                    yield 0
                 yield test_expr.file_offset
 
-        and_exprs.sort(key=lambda x: tuple(file_offsets(x)))
+        and_exprs.sort(key=lambda x: tuple(and_expr_rank(x)))
         return OrExpr(and_exprs)
 
     def _make_and_expr(self, condiction: boolalg.Boolean) -> AndExpr:
