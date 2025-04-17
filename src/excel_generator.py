@@ -296,8 +296,8 @@ class ExcelGenerator:
 
             # When
             for input in inputs:
-                match_texts = []
-                condition_tags = []
+                match_texts: list[str] = []
+                condition_tags: list[tuple[int, str]] = []
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
@@ -312,15 +312,17 @@ class ExcelGenerator:
                 )
                 if len(condition_tags) >= 1:
                     self._write_comment(
-                        self._row_index, column_index, "; ".join(condition_tags)
+                        self._row_index,
+                        column_index,
+                        "; ".join(self._sort_condition_tags(condition_tags)),
                     )
                 column_index += 1
 
             # Then
             for output in outputs:
                 if i == len(and_exprs) - 1:
-                    transform_texts = []
-                    transform_annotations = []
+                    transform_texts: list[str] = []
+                    transform_annotations: list[str] = []
                     for transform in return_point.transform_list:
                         output_2 = transform.spec["to"]
                         if output_2 == output:
@@ -350,7 +352,7 @@ class ExcelGenerator:
     ) -> str:
         lines = ["▶ WHEN"]
         for i, and_expr in enumerate(and_exprs):
-            condition_tags: list[str] = []
+            condition_tags: list[tuple[int, str]] = []
             for test_expr in and_expr.test_exprs:
                 condition_tags.extend(self._make_condition_tags(test_expr))
 
@@ -359,7 +361,9 @@ class ExcelGenerator:
                 break
 
             condition_number = self._conceal_text(f"[condition-{i+1}]")
-            line = f"{condition_number}  " + "; ".join(condition_tags)
+            line = f"{condition_number}  " + "; ".join(
+                self._sort_condition_tags(condition_tags)
+            )
             lines.append(line)
 
         lines.append("▶ THEN")
@@ -373,20 +377,27 @@ class ExcelGenerator:
 
         return "\n".join(lines)
 
-    def _make_condition_tags(self, test_expr: TestExpr) -> list[str]:
+    @classmethod
+    def _make_condition_tags(cls, test_expr: TestExpr) -> list[tuple[int, str]]:
         def make_condition_tag(test_expr: TestExpr) -> str:
             if test_expr.is_positive:
                 return "✅ " + test_expr.fact
             else:
                 return "❌ " + test_expr.fact
 
-        condition_tags = [make_condition_tag(test_expr)]
+        condition_tags = [(test_expr.file_offset, make_condition_tag(test_expr))]
         for child_test_expr in test_expr.children:
-            condition_tags.append(make_condition_tag(child_test_expr))
+            condition_tags.append(
+                (child_test_expr.file_offset, make_condition_tag(child_test_expr))
+            )
         return condition_tags
 
+    @classmethod
+    def _sort_condition_tags(cls, condition_tags: list[tuple[int, str]]) -> list[str]:
+        return list(map(lambda x: x[1], sorted(condition_tags, key=lambda x: x[0])))
+
     def _make_match_text(self, test_expr: TestExpr) -> str:
-        parts = []
+        parts: list[str] = []
         if test_expr.is_positive:
             op = test_expr.op
         else:
@@ -403,7 +414,7 @@ class ExcelGenerator:
         return " ".join(parts)
 
     def _make_transform_text(self, transform: Transform) -> str:
-        parts = []
+        parts: list[str] = []
         for i, operator in enumerate(transform.spec["operators"]):
             if i >= 1:
                 parts.append("|")
