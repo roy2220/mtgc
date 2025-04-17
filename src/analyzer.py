@@ -58,8 +58,8 @@ class AndExpr:
 @dataclass
 class TestExpr:
     is_positive: bool
-    symbol_id: int
     file_offset: int
+    symbol_value_id: int
     key: str
     key_index: int
     op: str
@@ -78,13 +78,16 @@ class TestExpr:
         for i in range(0, self.number_of_subkeys):
             yield self.values[i]
 
+    def number_of_real_values(self) -> int:
+        return len(self.values) - self.number_of_subkeys
+
     def real_values(self) -> Iterator[str]:
-        for i in range(self.number_of_subkeys, len(self.values)):
-            yield self.values[i]
+        for i in range(self.number_of_real_values()):
+            yield self.values[self.number_of_subkeys + i]
 
     def real_underlying_values(self) -> Iterator[str]:
-        for i in range(self.number_of_subkeys, len(self.values)):
-            yield self.underlying_values[i]
+        for i in range(self.number_of_real_values()):
+            yield self.underlying_values[self.number_of_subkeys + i]
 
 
 class Analyzer:
@@ -217,7 +220,7 @@ class _P1Analyzer(Visitor):
 @dataclass
 class _P2ReturnPoints:
     file_offset_2_item: dict[int, "_P2ReturnPoint"]
-    symbol_id_2_test_args: dict[int, "_TestArgs"]
+    symbol_id_2_test_args: dict[str, "_TestArgs"]
 
 
 @dataclass
@@ -229,7 +232,6 @@ class _P2ReturnPoint:
 
 @dataclass
 class _TestArgs:
-    file_offset: int
     key: str
     key_index: int
     op: str
@@ -246,6 +248,7 @@ class _TestArgs:
 class _P2Analyzer(Visitor):
     __slots__ = (
         "_program_link",
+        "_symbol_value_ids",
         "_symbols",
         "_condiction_stack",
         "_return_points",
@@ -253,7 +256,8 @@ class _P2Analyzer(Visitor):
 
     def __init__(self, program_link: Statement) -> None:
         self._program_link = program_link
-        self._symbols: dict[tuple[str, ...], sympy.Symbol] = {}
+        self._symbol_value_ids: dict[tuple[str, ...], int] = {}
+        self._symbols: dict[str, sympy.Symbol] = {}
         self._condiction_stack: list[boolalg.Boolean] = []
         self._return_points = _P2ReturnPoints({}, {})
 
@@ -263,22 +267,27 @@ class _P2Analyzer(Visitor):
 
         return self._return_points
 
-    def _get_or_new_symbol(self, test_args: _TestArgs) -> boolalg.Boolean:
-        symbol_key = (test_args.op, test_args.key, *test_args.values)
-        symbol = self._symbols.get(symbol_key)
-        if symbol is None:
-            reverse_symbol_key = (
+    def _get_or_new_symbol(
+        self, file_offset: int, test_args: _TestArgs
+    ) -> sympy.Symbol:
+        symbol_value = (test_args.op, test_args.key, *test_args.values)
+        symbol_value_id = self._symbol_value_ids.get(symbol_value)
+        if symbol_value_id is None:
+            reverse_symbol_value = (
                 test_args.reverse_op,
                 test_args.key,
                 *test_args.values,
             )
-            reverse_symbol = self._symbols.get(reverse_symbol_key)
-            if reverse_symbol is not None:
-                return boolalg.Not(reverse_symbol)
+            symbol_value_id = self._symbol_value_ids.get(reverse_symbol_value)
+            if symbol_value_id is None:
+                symbol_value_id = 1 + len(self._symbol_value_ids)
+                self._symbol_value_ids[symbol_value] = symbol_value_id
 
-            symbol_id = 1 + len(self._symbols)
-            symbol = sympy.Symbol(str(symbol_id))
-            self._symbols[symbol_key] = symbol
+        symbol_id = f"{file_offset}-{symbol_value_id}"
+        symbol = self._symbols.get(symbol_id)
+        if symbol is None:
+            symbol = sympy.Symbol(symbol_id)
+            self._symbols[symbol_id] = symbol
             self._return_points.symbol_id_2_test_args[symbol_id] = test_args
         return symbol
 
@@ -347,7 +356,6 @@ class _P2Analyzer(Visitor):
 
                 test_op_info = test_op_infos["in"]
                 test_args = _TestArgs(
-                    switch_statement.source_location.file_offset,
                     switch_statement.key,
                     switch_statement.key_index,
                     test_op_info.op,
@@ -360,10 +368,15 @@ class _P2Analyzer(Visitor):
                     test_op_info.unequals_real_values,
                 )
                 if condiction is None:
-                    condiction = self._get_or_new_symbol(test_args)
+                    condiction = self._get_or_new_symbol(
+                        case_clause.source_location.file_offset, test_args
+                    )
                 else:
                     condiction = boolalg.Or(
-                        condiction, self._get_or_new_symbol(test_args)
+                        condiction,
+                        self._get_or_new_symbol(
+                            case_clause.source_location.file_offset, test_args
+                        ),
                     )
             assert condiction is not None
             self._condiction_stack.append(condiction)
@@ -420,7 +433,6 @@ class _P2Analyzer(Visitor):
             test_op_info = test_op_infos[test_op_info.multiple_op]
 
         test_args = _TestArgs(
-            test_condiction.source_location.file_offset,
             test_condiction.key,
             test_condiction.key_index,
             test_op_info.op,
@@ -432,7 +444,11 @@ class _P2Analyzer(Visitor):
             test_op_info.equals_real_values,
             test_op_info.unequals_real_values,
         )
-        self._condiction_stack.append(self._get_or_new_symbol(test_args))
+        self._condiction_stack.append(
+            self._get_or_new_symbol(
+                test_condiction.source_location.file_offset, test_args
+            )
+        )
 
     def visit_composite_condiction(
         self, composite_condiction: CompositeCondiction
@@ -538,12 +554,13 @@ class _P3Analyzer:
             condiction = condiction.args[0]  # type: ignore
 
         assert condiction.func is sympy.Symbol
-        symbol_id = int(condiction.name)  # type: ignore
+        symbol_id = condiction.name  # type: ignore
+        file_offset, symbol_value_id = map(int, symbol_id.split("-", 1))
         test_args = self._raw_return_points.symbol_id_2_test_args[symbol_id]
         return TestExpr(
             is_positive,
-            symbol_id,
-            test_args.file_offset,
+            file_offset,
+            symbol_value_id,
             test_args.key,
             test_args.key_index,
             test_args.op,
@@ -631,7 +648,7 @@ class _P3Analyzer:
                 if j == i or j not in small_test_exprs.keys():
                     continue
 
-                if test_expr_y.symbol_id == test_expr_x.symbol_id:
+                if test_expr_y.symbol_value_id == test_expr_x.symbol_value_id:
                     if test_expr_y.is_positive == test_expr_x.is_positive:
                         # remove duplicate
                         small_test_exprs.pop(j)
@@ -684,9 +701,9 @@ class _P3Analyzer:
     def _make_test_expr_keys(cls, test_exprs: list[TestExpr]) -> Iterator[int]:
         for test_expr in test_exprs:
             if test_expr.is_positive:
-                yield test_expr.symbol_id
+                yield test_expr.symbol_value_id
             else:
-                yield -test_expr.symbol_id
+                yield -test_expr.symbol_value_id
 
     @classmethod
     def _merge_test_exprs(cls, test_exprs: list[TestExpr]) -> list[TestExpr]:
@@ -697,11 +714,8 @@ class _P3Analyzer:
             if i not in small_test_exprs.keys():
                 continue
 
-            if (test_expr_x.is_positive, test_expr_x.op) in (
-                (True, "in"),
-                (False, "nin"),
-                (True, "x/map/elem_in"),
-                (False, "x/map/elem_nin"),
+            if (test_expr_x.is_positive and test_expr_x.equals_real_values) or (
+                not test_expr_x.is_positive and test_expr_x.unequals_real_values
             ):
                 for j, test_expr_y in enumerate(test_exprs):
                     if j == i or j not in small_test_exprs.keys():
@@ -742,11 +756,8 @@ class _P3Analyzer:
             if i not in small_test_exprs.keys():
                 continue
 
-            if (test_expr_x.is_positive, test_expr_x.op) in (
-                (False, "in"),
-                (True, "nin"),
-                (False, "x/map/elem_in"),
-                (True, "x/map/elem_nin"),
+            if (not test_expr_x.is_positive and test_expr_x.equals_real_values) or (
+                test_expr_x.is_positive and test_expr_x.unequals_real_values
             ):
                 for j, test_expr_y in enumerate(test_exprs):
                     if j == i or j not in small_test_exprs.keys():
@@ -774,7 +785,7 @@ class _P3Analyzer:
 
         # merge phase 3
         for i, test_expr in small_test_exprs.items():
-            if len(test_expr.values) - test_expr.number_of_subkeys == 1:
+            if test_expr.number_of_real_values() == 1:
                 single_test_op = test_op_infos[test_expr.op].single_op
                 if single_test_op is not None:
                     # multiple_op => single_op
