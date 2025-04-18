@@ -297,12 +297,14 @@ class ExcelGenerator:
             # When
             for input in inputs:
                 match_texts: list[str] = []
-                condition_tags: list[tuple[int, str]] = []
+                condition_tags_with_file_offsets: list[tuple[str, int, int]] = []
                 for test_expr in and_expr.test_exprs:
                     input_2 = test_expr.key
                     if input_2 == input:
                         match_texts.append(self._make_match_text(test_expr))
-                        condition_tags.extend(self._make_condition_tags(test_expr))
+                        condition_tags_with_file_offsets.extend(
+                            self._make_condition_tags_with_file_offsets(test_expr)
+                        )
                 text = f"\nand\n".join(match_texts)
                 self._write_column(
                     self._row_index,
@@ -310,11 +312,13 @@ class ExcelGenerator:
                     text or "/",
                     self._cell_fmt,
                 )
-                if len(condition_tags) >= 1:
+                if len(condition_tags_with_file_offsets) >= 1:
                     self._write_comment(
                         self._row_index,
                         column_index,
-                        "; ".join(self._sort_condition_tags(condition_tags)),
+                        "; ".join(
+                            self._sort_condition_tags(condition_tags_with_file_offsets)
+                        ),
                     )
                 column_index += 1
 
@@ -350,21 +354,7 @@ class ExcelGenerator:
     def _make_business_scenario_text(
         self, and_exprs: list[AndExpr], transform_list: list[Transform]
     ) -> str:
-        lines = ["▶ WHEN"]
-        for i, and_expr in enumerate(and_exprs):
-            condition_tags: list[tuple[int, str]] = []
-            for test_expr in and_expr.test_exprs:
-                condition_tags.extend(self._make_condition_tags(test_expr))
-
-            if len(condition_tags) == 0:
-                lines.append("[No condition]")
-                break
-
-            condition_number = self._conceal_text(f"[condition-{i+1}]")
-            line = f"{condition_number}  " + "; ".join(
-                self._sort_condition_tags(condition_tags)
-            )
-            lines.append(line)
+        lines: list[str] = []
 
         lines.append("▶ THEN")
         if len(transform_list) == 0:
@@ -375,26 +365,63 @@ class ExcelGenerator:
                 line = f"{action_number}  " + transform.annotation
                 lines.append(line)
 
+        lines.append("▶ WHEN")
+        for i, and_expr in enumerate(and_exprs):
+            condition_tags_with_file_offsets: list[tuple[str, int, int]] = []
+            for test_expr in and_expr.test_exprs:
+                condition_tags_with_file_offsets.extend(
+                    self._make_condition_tags_with_file_offsets(test_expr)
+                )
+
+            if len(condition_tags_with_file_offsets) == 0:
+                lines.append("[No condition]")
+                break
+
+            condition_number = self._conceal_text(f"[condition-{i+1}]")
+            line = f"{condition_number}  " + "; ".join(
+                self._sort_condition_tags(condition_tags_with_file_offsets)
+            )
+            lines.append(line)
+
         return "\n".join(lines)
 
     @classmethod
-    def _make_condition_tags(cls, test_expr: TestExpr) -> list[tuple[int, str]]:
+    def _make_condition_tags_with_file_offsets(
+        cls, test_expr: TestExpr
+    ) -> list[tuple[str, int, int]]:
         def make_condition_tag(test_expr: TestExpr) -> str:
             if test_expr.is_positive:
                 return "✅ " + test_expr.fact
             else:
                 return "❌ " + test_expr.fact
 
-        condition_tags = [(test_expr.file_offset, make_condition_tag(test_expr))]
-        for child_test_expr in test_expr.children:
-            condition_tags.append(
-                (child_test_expr.file_offset, make_condition_tag(child_test_expr))
+        condition_tags_with_file_offsets = [
+            (
+                make_condition_tag(test_expr),
+                test_expr.file_offset_1,
+                test_expr.file_offset_2,
             )
-        return condition_tags
+        ]
+        for child_test_expr in test_expr.children:
+            condition_tags_with_file_offsets.append(
+                (
+                    make_condition_tag(child_test_expr),
+                    child_test_expr.file_offset_1,
+                    child_test_expr.file_offset_2,
+                )
+            )
+        return condition_tags_with_file_offsets
 
     @classmethod
-    def _sort_condition_tags(cls, condition_tags: list[tuple[int, str]]) -> list[str]:
-        return list(map(lambda x: x[1], sorted(condition_tags, key=lambda x: x[0])))
+    def _sort_condition_tags(
+        cls, condition_tags_with_file_offsets: list[tuple[str, int, int]]
+    ) -> list[str]:
+        return list(
+            map(
+                lambda x: x[0],
+                sorted(condition_tags_with_file_offsets, key=lambda x: (x[1], x[2])),
+            )
+        )
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
         parts: list[str] = []

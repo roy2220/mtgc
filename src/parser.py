@@ -23,6 +23,7 @@ class UnitDeclaration:
     source_location: SourceLocation
     name: str
     alias: str
+    default_transform_list: list["Transform"]
     program: list["Statement"]
 
 
@@ -47,7 +48,7 @@ class Transform:
 @dataclass
 class IfStatement:
     source_location: SourceLocation
-    condiction: "Condiction"
+    condition: "Condiction"
     body: list[Statement]
     else_if_clauses: list["ElseIfClause"]
     else_clause: "ElseClause"
@@ -62,7 +63,7 @@ class IfStatement:
 @dataclass
 class ElseIfClause:
     source_location: SourceLocation
-    condiction: "Condiction"
+    condition: "Condiction"
     body: list[Statement]
 
     # for analysis
@@ -94,11 +95,18 @@ class SwitchStatement:
 @dataclass
 class CaseClause:
     source_location: SourceLocation
-    values_and_facts: list[tuple[str, str]]
+    case_values: list["CaseValue"]
     body: list[Statement]
 
     # for analysis
     body_link: Statement | None = None
+
+
+@dataclass
+class CaseValue:
+    source_location: SourceLocation
+    value: str
+    fact: str
 
 
 @dataclass
@@ -120,7 +128,7 @@ class ConstantCondiction:
     constant: bool
 
     def accept_visit(self, visitor: "Visitor") -> None:
-        visitor.visit_constant_condiction(self)
+        visitor.visit_constant_condition(self)
 
 
 @dataclass
@@ -134,18 +142,18 @@ class TestCondiction:
     fact: str
 
     def accept_visit(self, visitor: "Visitor") -> None:
-        visitor.visit_test_condiction(self)
+        visitor.visit_test_condition(self)
 
 
 @dataclass
 class CompositeCondiction:
     source_location: SourceLocation
     logical_op_type: "OpType"
-    condiction1: Condiction
-    condiction2: Condiction | None
+    condition_1: Condiction
+    condition_2: Condiction | None
 
     def accept_visit(self, visitor: "Visitor") -> None:
-        visitor.visit_composite_condiction(self)
+        visitor.visit_composite_condition(self)
 
 
 class OpType(enum.IntEnum):
@@ -164,16 +172,14 @@ class Visitor:
     def visit_switch_statement(self, switch_statement: SwitchStatement) -> None:
         raise NotImplementedError()
 
-    def visit_constant_condiction(
-        self, constant_condiction: ConstantCondiction
-    ) -> None:
+    def visit_constant_condition(self, constant_condition: ConstantCondiction) -> None:
         raise NotImplementedError()
 
-    def visit_test_condiction(self, test_condiction: TestCondiction) -> None:
+    def visit_test_condition(self, test_condition: TestCondiction) -> None:
         raise NotImplementedError()
 
-    def visit_composite_condiction(
-        self, composite_condiction: CompositeCondiction
+    def visit_composite_condition(
+        self, composite_condition: CompositeCondiction
     ) -> None:
         raise NotImplementedError()
 
@@ -293,31 +299,19 @@ class Parser:
         unit_name = self._get_identifier()
         self._get_expected_token(TokenType.AS_KEYWORD)
         unit_alias = self._get_string()
+        default_transform_list = self._maybe_get_default_transform_list()
         self._get_expected_token(TokenType.OPEN_BRACE)
         program = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return UnitDeclaration(source_location, unit_name, unit_alias, program)
+        return UnitDeclaration(
+            source_location, unit_name, unit_alias, default_transform_list, program
+        )
 
-    def _get_statements(self) -> list[Statement]:
-        statements: list[Statement] = []
-        while True:
-            t = self._peek_token(1)
-            match t.type:
-                case TokenType.RETURN_KEYWORD:
-                    statements.append(self._get_return_statement())
-                case TokenType.SWITCH_KEYWORD:
-                    statements.append(self._get_switch_statement())
-                case TokenType.IF_KEYWORD:
-                    statements.append(self._get_if_statement())
-                case _:
-                    return statements
-
-    def _get_return_statement(self) -> ReturnStatement:
-        source_location = self._get_expected_token(
-            TokenType.RETURN_KEYWORD
-        ).source_location
-        transform_list = self._get_transform_list()
-        return ReturnStatement(source_location, transform_list)
+    def _maybe_get_default_transform_list(self) -> list[Transform]:
+        if self._peek_token(1).type == TokenType.DEFAULT_KEYWORD:
+            self._discard_tokens(1)
+            return self._get_transform_list()
+        return []
 
     def _get_transform_list(self) -> list[Transform]:
         if self._peek_token(1).type != TokenType.TRANSFORM_KEYWORD:
@@ -326,7 +320,8 @@ class Parser:
         transform_list: list[Transform] = []
 
         while True:
-            transform_list.append(self._get_transform())
+            transform = self._get_transform()
+            transform_list.append(transform)
 
             if self._peek_token(1).type != TokenType.COMMA:
                 break
@@ -423,6 +418,28 @@ class Parser:
 
         return Transform(transform_spec, transform_annotation)
 
+    def _get_statements(self) -> list[Statement]:
+        statements: list[Statement] = []
+        while True:
+            t = self._peek_token(1)
+            match t.type:
+                case TokenType.RETURN_KEYWORD:
+                    statement = self._get_return_statement()
+                case TokenType.SWITCH_KEYWORD:
+                    statement = self._get_switch_statement()
+                case TokenType.IF_KEYWORD:
+                    statement = self._get_if_statement()
+                case _:
+                    return statements
+            statements.append(statement)
+
+    def _get_return_statement(self) -> ReturnStatement:
+        source_location = self._get_expected_token(
+            TokenType.RETURN_KEYWORD
+        ).source_location
+        transform_list = self._get_transform_list()
+        return ReturnStatement(source_location, transform_list)
+
     def _get_switch_statement(self) -> SwitchStatement:
         source_location = self._get_expected_token(
             TokenType.SWITCH_KEYWORD
@@ -450,13 +467,11 @@ class Parser:
         source_location = self._get_expected_token(
             TokenType.CASE_KEYWORD
         ).source_location
-        values_and_facts: list[tuple[str, str]] = []
+        case_values: list[CaseValue] = []
 
         while True:
-            value = self._get_string()
-            self._get_expected_token(TokenType.AS_KEYWORD)
-            fact = self._get_string()
-            values_and_facts.append((value, fact))
+            case_value = self._get_case_value()
+            case_values.append(case_value)
 
             if self._peek_token(1).type != TokenType.COMMA:
                 break
@@ -466,7 +481,13 @@ class Parser:
         self._get_expected_token(TokenType.COLON)
 
         body = self._get_statements()
-        return CaseClause(source_location, values_and_facts, body)
+        return CaseClause(source_location, case_values, body)
+
+    def _get_case_value(self) -> CaseValue:
+        value, source_location = self._get_string_with_source_location()
+        self._get_expected_token(TokenType.AS_KEYWORD)
+        fact = self._get_string()
+        return CaseValue(source_location, value, fact)
 
     def _maybe_get_default_case_clause(self) -> DefaultCaseClause:
         t = self._peek_token(1)
@@ -481,7 +502,7 @@ class Parser:
 
     def _get_if_statement(self) -> IfStatement:
         source_location = self._get_expected_token(TokenType.IF_KEYWORD).source_location
-        condiction = self._get_condiction(0)
+        condition = self._get_condition(0)
         self._get_expected_token(TokenType.OPEN_BRACE)
         body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
@@ -500,7 +521,7 @@ class Parser:
         else_clause = self._maybe_get_else_clause()
 
         return IfStatement(
-            source_location, condiction, body, else_if_clauses, else_clause
+            source_location, condition, body, else_if_clauses, else_clause
         )
 
     def _get_else_if_clause(self) -> ElseIfClause:
@@ -508,11 +529,11 @@ class Parser:
             TokenType.ELSE_KEYWORD
         ).source_location
         self._get_expected_token(TokenType.IF_KEYWORD)
-        condiction = self._get_condiction(0)
+        condition = self._get_condition(0)
         self._get_expected_token(TokenType.OPEN_BRACE)
         body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return ElseIfClause(source_location, condiction, body)
+        return ElseIfClause(source_location, condition, body)
 
     def _maybe_get_else_clause(self) -> ElseClause:
         t = self._peek_token(1)
@@ -526,23 +547,23 @@ class Parser:
         self._get_expected_token(TokenType.CLOSE_BRACE)
         return ElseClause(source_location, body)
 
-    def _get_condiction(self, min_binary_op_precedence: int | None) -> Condiction:
+    def _get_condition(self, min_binary_op_precedence: int | None) -> Condiction:
         t = self._peek_token(1)
         if t.type == TokenType.OPEN_PAREN:
             self._discard_tokens(1)
-            condiction = self._get_condiction(0)
+            condition = self._get_condition(0)
             self._get_expected_token(TokenType.CLOSE_PAREN)
         elif t.type == TokenType.LOGICAL_NOT:
             self._discard_tokens(1)
-            condiction = CompositeCondiction(
-                t.source_location, OpType.LOGICAL_NOT, self._get_condiction(None), None
+            condition = CompositeCondiction(
+                t.source_location, OpType.LOGICAL_NOT, self._get_condition(None), None
             )
         else:
-            condiction = self._get_basic_condiction()
+            condition = self._get_basic_condition()
 
         if min_binary_op_precedence is None:
             # binary op is not allowed
-            return condiction
+            return condition
 
         while (
             binary_op_type := _token_type_2_binary_op_type.get(self._peek_token(1).type)
@@ -552,16 +573,16 @@ class Parser:
                 break
 
             self._discard_tokens(1)
-            condiction = CompositeCondiction(
-                condiction.source_location,
+            condition = CompositeCondiction(
+                condition.source_location,
                 binary_op_type,
-                condiction,
-                self._get_condiction(binary_op_precedence + 1),
+                condition,
+                self._get_condition(binary_op_precedence + 1),
             )
 
-        return condiction
+        return condition
 
-    def _get_basic_condiction(self) -> ConstantCondiction | TestCondiction:
+    def _get_basic_condition(self) -> ConstantCondiction | TestCondiction:
         t = self._peek_token(1)
         match t.type:
             case TokenType.TRUE_KEYWORD | TokenType.FALSE_KEYWORD:
@@ -570,11 +591,11 @@ class Parser:
                     t.source_location, t.type == TokenType.TRUE_KEYWORD
                 )
             case TokenType.TEST_KEYWORD:
-                return self._get_test_condiction()
+                return self._get_test_condition()
             case _:
                 raise UnexpectedTokenError(t)
 
-    def _get_test_condiction(self) -> TestCondiction:
+    def _get_test_condition(self) -> TestCondiction:
         source_location = self._get_expected_token(
             TokenType.TEST_KEYWORD
         ).source_location
