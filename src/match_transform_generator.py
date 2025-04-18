@@ -36,8 +36,8 @@ class MatchTransformGenerator:
                     f.write(unit_data)
 
     def _dump_unit(self, component: Component, unit: Unit) -> dict:
-        match_list = []
-        transform_list = []
+        match_list: list[dict] = []
+        transform_list: list[dict] = []
 
         for i, return_point in enumerate(unit.return_points):
             for and_expr in return_point.or_expr.and_exprs:
@@ -64,7 +64,7 @@ class MatchTransformGenerator:
             else:
                 return "❌ " + test_expr.fact
 
-        condition_list = []
+        condition_list: list[dict] = []
 
         for test_expr in and_expr.test_exprs:
             tags: list[str] = [make_tag(test_expr)]
@@ -103,10 +103,10 @@ class MatchTransformGenerator:
     def _dump_transform(
         self, return_point_index: int, return_point: ReturnPoint
     ) -> dict:
-        transforms = []
+        transforms: list[dict] = []
 
         for transform in return_point.transform_list:
-            operators = []
+            operators: list[dict] = []
 
             for operator in transform.spec["operators"]:
                 operator_2 = {"op": operator["op"]}

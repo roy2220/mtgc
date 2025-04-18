@@ -215,7 +215,7 @@ component DemoInfo as "just demo"
                                     line_number=19,
                                     column_number=9,
                                 ),
-                                condiction=CompositeCondiction(
+                                condition=CompositeCondiction(
                                     source_location=SourceLocation(
                                         file_name="<unnamed>",
                                         file_offset=510,
@@ -223,7 +223,7 @@ component DemoInfo as "just demo"
                                         column_number=32,
                                     ),
                                     logical_op_type=OpType.LOGICAL_OR,
-                                    condiction1=TestCondiction(
+                                    condition_1=TestCondiction(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
                                             file_offset=510,
@@ -237,7 +237,7 @@ component DemoInfo as "just demo"
                                         underlying_values=["100"],
                                         fact="tag4",
                                     ),
-                                    condiction2=CompositeCondiction(
+                                    condition_2=CompositeCondiction(
                                         source_location=SourceLocation(
                                             file_name="<unnamed>",
                                             file_offset=541,
@@ -245,7 +245,7 @@ component DemoInfo as "just demo"
                                             column_number=12,
                                         ),
                                         logical_op_type=OpType.LOGICAL_NOT,
-                                        condiction1=CompositeCondiction(
+                                        condition_1=CompositeCondiction(
                                             source_location=SourceLocation(
                                                 file_name="<unnamed>",
                                                 file_offset=563,
@@ -253,7 +253,7 @@ component DemoInfo as "just demo"
                                                 column_number=34,
                                             ),
                                             logical_op_type=OpType.LOGICAL_AND,
-                                            condiction1=TestCondiction(
+                                            condition_1=TestCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
                                                     file_offset=563,
@@ -267,7 +267,7 @@ component DemoInfo as "just demo"
                                                 underlying_values=["200"],
                                                 fact="tag9",
                                             ),
-                                            condiction2=TestCondiction(
+                                            condition_2=TestCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
                                                     file_offset=603,
@@ -282,7 +282,7 @@ component DemoInfo as "just demo"
                                                 fact="tag5",
                                             ),
                                         ),
-                                        condiction2=None,
+                                        condition_2=None,
                                     ),
                                 ),
                                 body=[
@@ -305,7 +305,7 @@ component DemoInfo as "just demo"
                                             line_number=23,
                                             column_number=11,
                                         ),
-                                        condiction=CompositeCondiction(
+                                        condition=CompositeCondiction(
                                             source_location=SourceLocation(
                                                 file_name="<unnamed>",
                                                 file_offset=710,
@@ -313,7 +313,7 @@ component DemoInfo as "just demo"
                                                 column_number=40,
                                             ),
                                             logical_op_type=OpType.LOGICAL_AND,
-                                            condiction1=CompositeCondiction(
+                                            condition_1=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
                                                     file_offset=710,
@@ -321,7 +321,7 @@ component DemoInfo as "just demo"
                                                     column_number=40,
                                                 ),
                                                 logical_op_type=OpType.LOGICAL_OR,
-                                                condiction1=TestCondiction(
+                                                condition_1=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=710,
@@ -335,7 +335,7 @@ component DemoInfo as "just demo"
                                                     underlying_values=["400"],
                                                     fact="tag6",
                                                 ),
-                                                condiction2=TestCondiction(
+                                                condition_2=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=750,
@@ -350,7 +350,7 @@ component DemoInfo as "just demo"
                                                     fact="tag7",
                                                 ),
                                             ),
-                                            condiction2=CompositeCondiction(
+                                            condition_2=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
                                                     file_offset=771,
@@ -358,7 +358,7 @@ component DemoInfo as "just demo"
                                                     column_number=101,
                                                 ),
                                                 logical_op_type=OpType.LOGICAL_NOT,
-                                                condiction1=TestCondiction(
+                                                condition_1=TestCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=792,
@@ -372,7 +372,7 @@ component DemoInfo as "just demo"
                                                     underlying_values=["600"],
                                                     fact="tag8",
                                                 ),
-                                                condiction2=None,
+                                                condition_2=None,
                                             ),
                                         ),
                                         body=[
@@ -383,7 +383,7 @@ component DemoInfo as "just demo"
                                                     line_number=24,
                                                     column_number=13,
                                                 ),
-                                                condiction=ConstantCondiction(
+                                                condition=ConstantCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=826,
@@ -431,7 +431,7 @@ component DemoInfo as "just demo"
                                                 line_number=28,
                                                 column_number=13,
                                             ),
-                                            condiction=CompositeCondiction(
+                                            condition=CompositeCondiction(
                                                 source_location=SourceLocation(
                                                     file_name="<unnamed>",
                                                     file_offset=927,
@@ -439,7 +439,7 @@ component DemoInfo as "just demo"
                                                     column_number=16,
                                                 ),
                                                 logical_op_type=OpType.LOGICAL_OR,
-                                                condiction1=ConstantCondiction(
+                                                condition_1=ConstantCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=927,
@@ -448,7 +448,7 @@ component DemoInfo as "just demo"
                                                     ),
                                                     constant=True,
                                                 ),
-                                                condiction2=CompositeCondiction(
+                                                condition_2=CompositeCondiction(
                                                     source_location=SourceLocation(
                                                         file_name="<unnamed>",
                                                         file_offset=935,
@@ -456,7 +456,7 @@ component DemoInfo as "just demo"
                                                         column_number=24,
                                                     ),
                                                     logical_op_type=OpType.LOGICAL_NOT,
-                                                    condiction1=ConstantCondiction(
+                                                    condition_1=ConstantCondiction(
                                                         source_location=SourceLocation(
                                                             file_name="<unnamed>",
                                                             file_offset=936,
@@ -465,7 +465,7 @@ component DemoInfo as "just demo"
                                                         ),
                                                         constant=False,
                                                     ),
-                                                    condiction2=None,
+                                                    condition_2=None,
                                                 ),
                                             ),
                                             body=[
