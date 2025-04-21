@@ -363,6 +363,7 @@ class Parser:
                 values = operator.get("values")
                 if values is not None and len(values) >= 1:
                     underlying_values = values.copy()
+                    expr_keys: list[str] = []
                     parts = re.split(
                         r"(^|[^a-zA-Z0-9_])(GetFunc(?:Int|Float))(\()([^\)]+)(\))",
                         underlying_values[0],
@@ -382,10 +383,12 @@ class Parser:
                             if key_index is None:
                                 raise UnknownKeyError(source_location, key)
                             parts[i] = str(key_index)
-                        else:
-                            i += 1
+                            expr_keys.append(key)
+                        last_part = parts[i]
+                        i += 1
                     underlying_values[0] = "".join(parts)
                     operator["underlying_values"] = underlying_values
+                    operator["expr_keys"] = expr_keys
 
             from1 = operator.get("from")
             if from1 is not None:
