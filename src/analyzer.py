@@ -17,10 +17,9 @@ from .parser import (
     Statement,
     SwitchStatement,
     TestCondiction,
-    Transform,
-    UnitDeclaration,
-    Visitor,
 )
+from .parser import Transform as RawTransform
+from .parser import UnitDeclaration, Visitor
 from .scanner import SourceLocation
 from .test_op_infos import TestOpInfo, test_op_infos
 
@@ -42,8 +41,14 @@ class Unit:
 @dataclass
 class ReturnPoint:
     or_expr: "OrExpr"
-    file_offset: int
-    transform_list: list[Transform]
+    transform_list: list["Transform"]
+
+
+@dataclass
+class Transform:
+    rank: int
+    spec: dict
+    annotation: str
 
 
 @dataclass
@@ -53,43 +58,22 @@ class OrExpr:
 
 @dataclass
 class AndExpr:
+    rank: int
     test_exprs: list["TestExpr"]
 
 
 @dataclass
 class TestExpr:
-    is_positive: bool
-    file_offset_1: int
-    file_offset_2: int
-    test_id: int
+    is_negative: bool
     key: str
     key_index: int
     op: str
     values: list[str]
     underlying_values: list[str]
     fact: str
-
     reverse_op: str
-    number_of_subkeys: int
-    equals_real_values: bool
-    unequals_real_values: bool
-    children: list["TestExpr"]
-
-    def virtual_key(self) -> Iterator[str]:
-        yield self.key
-        for i in range(0, self.number_of_subkeys):
-            yield self.values[i]
-
-    def number_of_real_values(self) -> int:
-        return len(self.values) - self.number_of_subkeys
-
-    def real_values(self) -> Iterator[str]:
-        for i in range(self.number_of_subkeys, len(self.values)):
-            yield self.values[i]
-
-    def real_underlying_values(self) -> Iterator[str]:
-        for i in range(self.number_of_subkeys, len(self.underlying_values)):
-            yield self.underlying_values[i]
+    is_merged: bool
+    merged_children: list["TestExpr"]
 
 
 class Analyzer:
@@ -139,15 +123,17 @@ class Analyzer:
         p2_analyzer = _P2Analyzer(
             unit_declaration.default_transform_list, p1_analyzer.get_program_link()
         )
-        raw_return_points = p2_analyzer.get_return_points()
-        p3_analyzer = _P3Analyzer(raw_return_points)
-        return_points = p3_analyzer.simplify_return_points(self._reduce_return_points)
+        p2_return_points = p2_analyzer.get_return_points()
+        p3_analyzer = _P3Analyzer(p2_return_points)
+        p3_return_points = p3_analyzer.simplify_return_points(
+            self._reduce_return_points
+        )
         _P4Analyzer(
             unit_declaration,
-            return_points,
-            raw_return_points.default_return_point_file_offsets,
+            p3_return_points,
+            p2_return_points.default_return_point_file_offsets,
         ).check_return_statements()
-        return return_points
+        return [x.to_return_point() for x in p3_return_points]
 
 
 class _P1Analyzer(Visitor):
@@ -228,7 +214,7 @@ class _P1Analyzer(Visitor):
 
 @dataclass
 class _P2ReturnPoints:
-    default_transform_list: list[Transform]
+    default_transform_list: list[RawTransform]
     default_return_point_file_offsets: set[int]
     file_offset_2_item: dict[int, "_P2ReturnPoint"]
     file_offsets_2_test_args: dict[tuple[int, int], "_TestArgs"]
@@ -237,7 +223,7 @@ class _P2ReturnPoints:
 @dataclass
 class _P2ReturnPoint:
     file_offset: int
-    transform_list: list[Transform]
+    transform_list: list[RawTransform]
     conditions: list[boolalg.Boolean]
 
 
@@ -265,7 +251,7 @@ class _P2Analyzer(Visitor):
     )
 
     def __init__(
-        self, default_transform_list: list[Transform], program_link: Statement
+        self, default_transform_list: list[RawTransform], program_link: Statement
     ) -> None:
         self._program_link = program_link
         self._symbols: dict[str, sympy.Symbol] = {}
@@ -486,18 +472,139 @@ class _P2Analyzer(Visitor):
                 assert False
 
 
-class _P3AndExpr:
+class _P3ReturnPoint:
     __slots__ = (
-        "test_exprs",
-        "test_ids",
+        "or_expr",
+        "transform_list",
+        "file_offset",
     )
 
-    def __init__(self, and_expr: AndExpr) -> None:
-        self.test_exprs = and_expr.test_exprs
+    def __init__(self) -> None:
+        self.or_expr = _P3OrExpr()
+        self.transform_list: list[_P3Transform] = []
+
+        self.file_offset = 0
+
+    def to_return_point(self) -> ReturnPoint:
+        return ReturnPoint(
+            self.or_expr.to_or_expr(), [x.to_transform() for x in self.transform_list]
+        )
+
+
+class _P3OrExpr:
+    __slots__ = ("and_exprs",)
+
+    def __init__(self) -> None:
+        self.and_exprs: list[_P3AndExpr] = []
+
+    def to_or_expr(self) -> OrExpr:
+        return OrExpr([x.to_and_expr() for x in self.and_exprs])
+
+
+class _P3AndExpr:
+    __slots__ = (
+        "rank",
+        "test_exprs",
+        "test_ids",
+        "prefect_rank",
+    )
+
+    def __init__(self) -> None:
+        self.rank = 0
+        self.test_exprs: list[_P3TestExpr] = []
+
         self.test_ids: set[int] = set()
 
+        self.prefect_rank = 0
+
     def to_and_expr(self) -> AndExpr:
-        return AndExpr(self.test_exprs)
+        return AndExpr(self.rank, [x.to_test_expr() for x in self.test_exprs])
+
+
+class _P3TestExpr:
+    __slots__ = (
+        "is_negative",
+        "key",
+        "key_index",
+        "op",
+        "values",
+        "underlying_values",
+        "fact",
+        "reverse_op",
+        "is_merged",
+        "merged_children",
+        "file_offset_1",
+        "file_offset_2",
+        "test_id",
+        "number_of_subkeys",
+        "equals_real_values",
+        "unequals_real_values",
+    )
+
+    def __init__(self) -> None:
+        self.is_negative = False
+        self.key = ""
+        self.key_index = 0
+        self.op = ""
+        self.values: list[str] = []
+        self.underlying_values: list[str] = []
+        self.fact = ""
+        self.reverse_op = ""
+        self.is_merged = False
+        self.merged_children: list[_P3TestExpr] = []
+
+        self.file_offset_1 = _dummy_file_offset
+        self.file_offset_2 = _dummy_file_offset
+        self.test_id = 0
+        self.number_of_subkeys = 0
+        self.equals_real_values = False
+        self.unequals_real_values = False
+
+    def virtual_key(self) -> Iterator[str]:
+        yield self.key
+        for i in range(0, self.number_of_subkeys):
+            yield self.values[i]
+
+    def number_of_real_values(self) -> int:
+        return len(self.values) - self.number_of_subkeys
+
+    def real_values(self) -> Iterator[str]:
+        for i in range(self.number_of_subkeys, len(self.values)):
+            yield self.values[i]
+
+    def real_underlying_values(self) -> Iterator[str]:
+        for i in range(self.number_of_subkeys, len(self.underlying_values)):
+            yield self.underlying_values[i]
+
+    def to_test_expr(self) -> TestExpr:
+        return TestExpr(
+            self.is_negative,
+            self.key,
+            self.key_index,
+            self.op,
+            self.values,
+            self.underlying_values,
+            self.fact,
+            self.reverse_op,
+            self.is_merged,
+            [x.to_test_expr() for x in self.merged_children],
+        )
+
+
+class _P3Transform:
+    __slots__ = (
+        "rank",
+        "spec",
+        "annotation",
+    )
+
+    def __init__(self) -> None:
+        self.rank = 0
+        self.spec = {}
+        self.annotation = ""
+
+    def to_transform(self) -> Transform:
+        return Transform(self.rank, self.spec, self.annotation)
 
 
 class _P3Analyzer:
@@ -510,40 +617,59 @@ class _P3Analyzer:
         self._raw_return_points = raw_return_points
         self._absolute_test_ids: dict[tuple[str, ...], int] = {}
 
-    def simplify_return_points(self, reduce_return_points: bool) -> list[ReturnPoint]:
-        return_points: list[ReturnPoint] = []
+    def simplify_return_points(
+        self, reduce_return_points: bool
+    ) -> list[_P3ReturnPoint]:
+        return_points = self._make_return_points()
 
-        for raw_return_point in self._raw_return_points.file_offset_2_item.values():
-            conditions = self._simplify_conditions(raw_return_point.conditions)
-            if isinstance(conditions, bool):
-                if not conditions:
-                    continue
+        if reduce_return_points:
+            return_points = self._reduce_return_points(return_points)
 
-                or_expr = OrExpr([AndExpr([])])
-            else:
-                or_expr = self._make_or_expr(conditions)
+        all_and_exprs = self._sort_all_and_exprs(return_points)
+        self._set_and_expr_ranks(return_points)
+        self._set_transform_ranks(return_points)
 
-            return_points.append(
-                ReturnPoint(
-                    or_expr,
-                    raw_return_point.file_offset,
-                    raw_return_point.transform_list,
-                )
-            )
+        if False:  # TODO
+            self._optimize_and_exprs(all_and_exprs)
 
-        def return_point_rank(return_point: ReturnPoint) -> float:
+        self._merge_test_exprs(return_points)
+
+        return return_points
+
+    def _make_return_points(self) -> list[_P3ReturnPoint]:
+        def return_point_key(return_point: _P3ReturnPoint) -> float:
             if return_point.file_offset == _dummy_file_offset:
                 return math.inf
             else:
                 return float(return_point.file_offset)
 
-        return_points.sort(key=return_point_rank)
-        if reduce_return_points:
-            return_points = self._reduce_return_points(return_points)
+        return_points: list[_P3ReturnPoint] = []
 
+        for raw_return_point in self._raw_return_points.file_offset_2_item.values():
+            return_point = _P3ReturnPoint()
+
+            conditions = self._expand_conditions(raw_return_point.conditions)
+            if isinstance(conditions, bool):
+                if not conditions:
+                    continue
+
+                return_point.or_expr.and_exprs.append(_P3AndExpr())
+            else:
+                return_point.or_expr = self._make_or_expr(conditions)
+
+            for raw_transform in raw_return_point.transform_list:
+                transform = _P3Transform()
+                transform.spec = raw_transform.spec
+                transform.annotation = raw_transform.annotation
+                return_point.transform_list.append(transform)
+
+            return_point.file_offset = raw_return_point.file_offset
+            return_points.append(return_point)
+
+        return_points.sort(key=return_point_key)
         return return_points
 
-    def _simplify_conditions(
+    def _expand_conditions(
         self, conditions: list[boolalg.Boolean]
     ) -> bool | list[boolalg.Boolean]:
         if len(conditions) == 0:
@@ -564,75 +690,78 @@ class _P3Analyzer:
             return False
         return new_conditions
 
-    def _make_or_expr(self, conditions: list[boolalg.Boolean]) -> OrExpr:
-        def and_expr_rank(and_expr: AndExpr) -> Iterator[int]:
+    def _make_or_expr(self, conditions: list[boolalg.Boolean]) -> _P3OrExpr:
+        def and_expr_key(and_expr: _P3AndExpr) -> Iterator[int]:
             for test_expr in and_expr.test_exprs:
                 yield test_expr.file_offset_1
                 yield test_expr.file_offset_2
 
-        and_exprs: list[AndExpr] = []
+        or_expr = _P3OrExpr()
 
         for condition in conditions:
             if condition.func is not boolalg.Or:
-                and_exprs.append(self._make_and_expr(condition))
+                or_expr.and_exprs.append(self._make_and_expr(condition))
                 continue
 
-            and_exprs_2: list[AndExpr] = []
+            and_exprs_2: list[_P3AndExpr] = []
             for condition_2 in condition.args:
                 and_exprs_2.append(self._make_and_expr(condition_2))  # type: ignore
 
-            and_exprs_2.sort(key=lambda x: tuple(and_expr_rank(x)))
-            and_exprs.extend(and_exprs_2)
+            and_exprs_2.sort(key=lambda x: tuple(and_expr_key(x)))
+            or_expr.and_exprs.extend(and_exprs_2)
 
-        return OrExpr(and_exprs)
+        return or_expr
 
-    def _make_and_expr(self, condition: boolalg.Boolean) -> AndExpr:
+    def _make_and_expr(self, condition: boolalg.Boolean) -> _P3AndExpr:
+        and_expr = _P3AndExpr()
+
         if condition.func is not boolalg.And:
-            return AndExpr([self._make_test_expr(condition)])  # type: ignore
+            and_expr.test_exprs.append(self._make_test_expr(condition))
+            return and_expr
 
-        test_exprs: list[TestExpr] = []
         for condition_2 in condition.args:
-            test_exprs.append(self._make_test_expr(condition_2))  # type: ignore
+            and_expr.test_exprs.append(self._make_test_expr(condition_2))  # type: ignore
 
-        test_exprs.sort(key=lambda x: (x.file_offset_1, x.file_offset_2))
-        return AndExpr(test_exprs)
+        and_expr.test_exprs.sort(key=lambda x: (x.file_offset_1, x.file_offset_2))
 
-    def _make_test_expr(self, condition: boolalg.Boolean) -> TestExpr:
-        is_positive = True
+        return and_expr
+
+    def _make_test_expr(self, condition: boolalg.Boolean) -> _P3TestExpr:
+        test_expr = _P3TestExpr()
+
         if condition.func is boolalg.Not:
-            is_positive = False
+            test_expr.is_negative = True
             condition = condition.args[0]  # type: ignore
 
         assert condition.func is sympy.Symbol
         symbol_name = condition.name  # type: ignore
-        file_offset_1, file_offset_2 = map(int, symbol_name.split(",", 1))
-        test_args = self._raw_return_points.file_offsets_2_test_args[
-            file_offset_1, file_offset_2
-        ]
-        test_id = self._make_test_id(is_positive, test_args)
-        return TestExpr(
-            is_positive,
-            file_offset_1,
-            file_offset_2,
-            test_id,
-            test_args.key,
-            test_args.key_index,
-            test_args.op,
-            test_args.values.copy(),  # could be modified
-            test_args.underlying_values.copy(),  # could be modified
-            test_args.fact,
-            test_args.reverse_op,
-            test_args.number_of_subkeys,
-            test_args.equals_real_values,
-            test_args.unequals_real_values,
-            [],
+        test_expr.file_offset_1, test_expr.file_offset_2 = map(
+            int, symbol_name.split(",", 1)
         )
 
-    def _make_test_id(self, is_positive: bool, test_args: _TestArgs) -> int:
-        if is_positive:
-            factor = 1
-        else:
+        test_args = self._raw_return_points.file_offsets_2_test_args[
+            test_expr.file_offset_1, test_expr.file_offset_2
+        ]
+        test_expr.key = test_args.key
+        test_expr.key_index = test_args.key_index
+        test_expr.op = test_args.op
+        test_expr.values = test_args.values.copy()
+        test_expr.underlying_values = test_args.underlying_values.copy()
+        test_expr.fact = test_args.fact
+        test_expr.reverse_op = test_args.reverse_op
+        test_expr.number_of_subkeys = test_args.number_of_subkeys
+        test_expr.equals_real_values = test_args.equals_real_values
+        test_expr.unequals_real_values = test_args.unequals_real_values
+
+        test_expr.test_id = self._make_test_id(test_expr.is_negative, test_args)
+
+        return test_expr
+
+    def _make_test_id(self, is_negative: bool, test_args: _TestArgs) -> int:
+        if is_negative:
             factor = -1
+        else:
+            factor = 1
 
         test_traits = (test_args.op, test_args.key, *test_args.values)
         absolute_test_id = self._absolute_test_ids.get(test_traits)
@@ -651,89 +780,83 @@ class _P3Analyzer:
 
         return factor * absolute_test_id
 
+    @classmethod
     def _reduce_return_points(
-        self, return_points: list[ReturnPoint]
-    ) -> list[ReturnPoint]:
-        small_return_point: list[ReturnPoint] = []
+        cls, return_points: list[_P3ReturnPoint]
+    ) -> list[_P3ReturnPoint]:
+        return_point_indexes = set(range(len(return_points)))
 
-        for return_point in return_points:
-            or_expr = self._reduce_or_expr(return_point.or_expr)
+        for i, return_point in enumerate(return_points):
+            or_expr = cls._reduce_or_expr(return_point.or_expr)
             if or_expr is None:
+                return_point_indexes.remove(i)
                 continue
 
-            new_return_point = dataclasses.replace(return_point, or_expr=or_expr)
-            small_return_point.append(new_return_point)
+            return_point.or_expr = or_expr
 
-        return small_return_point
+        return list(map(lambda x: return_points[x], sorted(return_point_indexes)))
 
-    def _reduce_or_expr(self, or_expr: OrExpr) -> OrExpr | None:
-        and_exprs = self._reduce_and_exprs(or_expr.and_exprs)
+    @classmethod
+    def _reduce_or_expr(cls, or_expr: _P3OrExpr) -> _P3OrExpr | None:
+        and_exprs = cls._reduce_and_exprs(or_expr.and_exprs)
         if and_exprs is None:
             return None
 
-        new_or_expr = dataclasses.replace(or_expr, and_exprs=and_exprs)
-        return new_or_expr
-
-    def _reduce_and_exprs(self, and_exprs: list[AndExpr]) -> list[AndExpr] | None:
-        small_and_exprs = dict(
-            map(lambda x: (x[0], _P3AndExpr(x[1])), enumerate(and_exprs))
-        )
-
-        for i, and_expr in enumerate(and_exprs):
-            test_exprs = self._reduce_test_exprs(and_expr.test_exprs)
-            if test_exprs is None:
-                small_and_exprs.pop(i)
-                continue
-
-            and_expr_2 = small_and_exprs[i]
-            and_expr_2.test_exprs = test_exprs
-            and_expr_2.test_ids = set(map(lambda x: x.test_id, test_exprs))
-
-        for i in range(len(and_exprs)):
-            if i not in small_and_exprs.keys():
-                continue
-            test_ids_x = small_and_exprs[i].test_ids
-
-            for j in range(len(and_exprs)):
-                if j == i or j not in small_and_exprs.keys():
-                    continue
-                test_ids_y = small_and_exprs[j].test_ids
-
-                if test_ids_x.issubset(test_ids_y):
-                    small_and_exprs.pop(j)
-
-        if len(small_and_exprs) == 0:
-            return None
-
-        small_and_exprs_2 = list(small_and_exprs.values())
-        self._rearrange_and_exprs(small_and_exprs_2)
-
-        for and_expr in small_and_exprs_2:
-            and_expr.test_exprs = self._merge_test_exprs(and_expr.test_exprs)
-
-        return list(map(lambda x: x.to_and_expr(), small_and_exprs_2))
+        or_expr.and_exprs = and_exprs
+        return or_expr
 
     @classmethod
-    def _reduce_test_exprs(cls, test_exprs: list[TestExpr]) -> list[TestExpr] | None:
-        small_test_exprs = dict(enumerate(test_exprs))
+    def _reduce_and_exprs(cls, and_exprs: list[_P3AndExpr]) -> list[_P3AndExpr] | None:
+        and_expr_indexes = set(range(len(and_exprs)))
+
+        for i, and_expr in enumerate(and_exprs):
+            test_exprs = cls._reduce_test_exprs(and_expr.test_exprs)
+            if test_exprs is None:
+                and_expr_indexes.remove(i)
+                continue
+
+            and_expr.test_exprs = test_exprs
+            and_expr.test_ids = set(map(lambda x: x.test_id, test_exprs))
+
+        for i, and_expr_x in enumerate(and_exprs):
+            if i not in and_expr_indexes:
+                continue
+
+            for j, and_expr_y in enumerate(and_exprs):
+                if j == i or j not in and_expr_indexes:
+                    continue
+
+                if and_expr_x.test_ids.issubset(and_expr_y.test_ids):
+                    and_expr_indexes.remove(j)
+
+        if len(and_expr_indexes) == 0:
+            return None
+
+        return list(map(lambda x: and_exprs[x], sorted(and_expr_indexes)))
+
+    @classmethod
+    def _reduce_test_exprs(
+        cls, test_exprs: list[_P3TestExpr]
+    ) -> list[_P3TestExpr] | None:
+        test_expr_indexes = set(range(len(test_exprs)))
 
         for i, test_expr_x in enumerate(test_exprs):
-            if i not in small_test_exprs.keys():
+            if i not in test_expr_indexes:
                 continue
 
             x_real_values = None
-            if (test_expr_x.is_positive and test_expr_x.equals_real_values) or (
-                not test_expr_x.is_positive and test_expr_x.unequals_real_values
+            if (not test_expr_x.is_negative and test_expr_x.equals_real_values) or (
+                test_expr_x.is_negative and test_expr_x.unequals_real_values
             ):
                 x_real_values = set(test_expr_x.real_values())
 
             for j, test_expr_y in enumerate(test_exprs):
-                if j == i or j not in small_test_exprs.keys():
+                if j == i or j not in test_expr_indexes:
                     continue
 
                 if test_expr_y.test_id == test_expr_x.test_id:
                     # remove duplicate
-                    small_test_exprs.pop(j)
+                    test_expr_indexes.remove(j)
                     continue
 
                 if test_expr_y.test_id == -test_expr_x.test_id:
@@ -746,20 +869,20 @@ class _P3Analyzer:
                     and tuple(test_expr_y.virtual_key())
                     == tuple(test_expr_x.virtual_key())
                 ):
-                    if (test_expr_y.is_positive, test_expr_y.op) in (
+                    if (test_expr_y.is_negative, test_expr_y.op) in (
                         (
-                            test_expr_x.is_positive,
+                            test_expr_x.is_negative,
                             test_expr_x.op,
                         ),
                         (
-                            not test_expr_x.is_positive,
+                            not test_expr_x.is_negative,
                             test_expr_x.reverse_op,
                         ),
                     ):
-                        if x_real_values.issuperset(test_expr_y.real_values()):
-                            # `in[a, b, c]` vs `in[a, b]`
+                        if x_real_values.issubset(test_expr_y.real_values()):
+                            # `in[a, b]` vs `in[a, b, c]`
                             # remove duplicate
-                            small_test_exprs.pop(j)
+                            test_expr_indexes.remove(j)
                             continue
                         elif x_real_values.isdisjoint(test_expr_y.real_values()):
                             # `in[a, b]` vs `in[c]`
@@ -774,43 +897,123 @@ class _P3Analyzer:
                         elif x_real_values.isdisjoint(test_expr_y.real_values()):
                             # `in[a, b]` vs `nin[c]`
                             # remove unused
-                            small_test_exprs.pop(j)
+                            test_expr_indexes.remove(j)
                             continue
                         # `in[a, b]` vs `nin[a, c]`
 
-        return list(small_test_exprs.values())
+        return list(map(lambda x: test_exprs[x], sorted(test_expr_indexes)))
 
-    def _rearrange_and_exprs(self, and_exprs: list[_P3AndExpr]) -> None:
+    def _sort_all_and_exprs(
+        self, return_points: list[_P3ReturnPoint]
+    ) -> list[_P3AndExpr]:
+        all_and_exprs: list[_P3AndExpr] = []
+        for return_point in return_points:
+            all_and_exprs.extend(return_point.or_expr.and_exprs)
+
         k = len(self._absolute_test_ids)
         test_id_ref_counts: list[int] = (2 * k + 1) * [0]
-        for and_expr in and_exprs:
+        for and_expr in all_and_exprs:
             n = len(and_expr.test_exprs)
             for i, test_expr in enumerate(and_expr.test_exprs):
-                test_id_ref_counts[k + test_expr.test_id] += n - i
+                ref_count = n - i
+                test_id_ref_counts[k + test_expr.test_id] += ref_count
+                test_id_ref_counts[k - test_expr.test_id] -= ref_count
 
-        def and_expr_rank(and_expr: _P3AndExpr) -> Iterator[int]:
+        def and_expr_key(and_expr: _P3AndExpr) -> Iterator[int]:
             for test_expr in and_expr.test_exprs:
                 test_id_ref_count = test_id_ref_counts[k + test_expr.test_id]
                 yield test_id_ref_count
                 yield test_expr.file_offset_1
                 yield test_expr.file_offset_2
 
-        and_exprs.sort(key=lambda x: tuple(and_expr_rank(x)))
+        all_and_exprs.sort(key=lambda x: tuple(and_expr_key(x)))
+        for i, and_expr in enumerate(all_and_exprs):
+            and_expr.prefect_rank = 1 + i
+
+        for return_point in return_points:
+            return_point.or_expr.and_exprs.sort(key=lambda x: x.prefect_rank)
+
+        return all_and_exprs
 
     @classmethod
-    def _merge_test_exprs(cls, test_exprs: list[TestExpr]) -> list[TestExpr]:
-        small_test_exprs = dict(enumerate(test_exprs))
+    def _set_and_expr_ranks(cls, return_points: list[_P3ReturnPoint]) -> None:
+        number_of_and_exprs = 0
 
+        for return_point in return_points:
+            for and_expr in return_point.or_expr.and_exprs:
+                number_of_and_exprs += 1
+                and_expr.rank = number_of_and_exprs
+
+    @classmethod
+    def _set_transform_ranks(cls, return_points: list[_P3ReturnPoint]) -> None:
+        number_of_transforms = 0
+
+        for return_point in return_points:
+            for transform in return_point.transform_list:
+                number_of_transforms += 1
+                transform.rank = number_of_transforms
+
+    @classmethod
+    def _optimize_and_exprs(cls, all_and_exprs: list[_P3AndExpr]) -> None:
+        test_id_sets: set[tuple[int, ...]] = set()
+
+        for i, and_expr in enumerate(all_and_exprs):
+            and_expr.rank = i + 1
+
+            new_test_id_list: list[int] = []
+            for test_expr in and_expr.test_exprs:
+                if (*new_test_id_list, -test_expr.test_id) in test_id_sets:
+                    test_expr.fact = f"~{test_expr.fact}~"
+                    continue
+
+                new_test_id_list.append(test_expr.test_id)
+
+            new_test_ids = tuple(new_test_id_list)
+            new_test_id_sets: list[tuple[int, ...]] = [new_test_ids]
+            while len(new_test_id_sets) >= 1:
+                new_test_ids = new_test_id_sets.pop(0)
+
+                if len(new_test_ids) == 0 or new_test_ids in test_id_sets:
+                    continue
+
+                test_id_sets.add(new_test_ids)
+                new_test_ids_prefix, last_new_test_id = (
+                    new_test_ids[:-1],
+                    new_test_ids[-1],
+                )
+
+                for test_ids in tuple(test_id_sets):
+                    if len(test_ids) <= len(new_test_ids_prefix):
+                        continue
+                    if test_ids[: len(new_test_ids_prefix)] != new_test_ids_prefix:
+                        continue
+
+                    test_ids_suffix = test_ids[len(new_test_ids_prefix) :]
+                    if -last_new_test_id in test_ids_suffix:
+                        new_test_ids_2 = new_test_ids_prefix + tuple(
+                            x for x in test_ids_suffix if x != -last_new_test_id
+                        )
+                        new_test_id_sets.append(new_test_ids_2)
+                        test_id_sets.remove(test_ids)
+
+    @classmethod
+    def _merge_test_exprs(cls, return_points: list[_P3ReturnPoint]) -> None:
+        for return_point in return_points:
+            for and_expr in return_point.or_expr.and_exprs:
+                cls._do_merge_test_exprs(and_expr.test_exprs)
+
+    @classmethod
+    def _do_merge_test_exprs(cls, test_exprs: list[_P3TestExpr]) -> None:
         # merge phase 1
         for i, test_expr_x in enumerate(test_exprs):
-            if i not in small_test_exprs.keys():
+            if test_expr_x.is_merged:
                 continue
 
-            if (test_expr_x.is_positive and test_expr_x.equals_real_values) or (
-                not test_expr_x.is_positive and test_expr_x.unequals_real_values
+            if (not test_expr_x.is_negative and test_expr_x.equals_real_values) or (
+                test_expr_x.is_negative and test_expr_x.unequals_real_values
             ):
                 for j, test_expr_y in enumerate(test_exprs):
-                    if j == i or j not in small_test_exprs.keys():
+                    if j == i or test_expr_y.is_merged:
                         continue
 
                     if test_expr_y.op in (
@@ -819,13 +1022,13 @@ class _P3Analyzer:
                     ) and tuple(test_expr_y.virtual_key()) == tuple(
                         test_expr_x.virtual_key()
                     ):
-                        if (test_expr_y.is_positive, test_expr_y.op) in (
+                        if (test_expr_y.is_negative, test_expr_y.op) in (
                             (
-                                test_expr_x.is_positive,
+                                test_expr_x.is_negative,
                                 test_expr_x.op,
                             ),
                             (
-                                not test_expr_x.is_positive,
+                                not test_expr_x.is_negative,
                                 test_expr_x.reverse_op,
                             ),
                         ):
@@ -840,28 +1043,28 @@ class _P3Analyzer:
                                 test_expr_x, set(test_expr_y.real_values())
                             )
 
-                        test_expr_x.children.append(test_expr_y)
-                        small_test_exprs.pop(j)
+                        test_expr_x.merged_children.append(test_expr_y)
+                        test_expr_y.is_merged = True
 
         # merge phase 2
         for i, test_expr_x in enumerate(test_exprs):
-            if i not in small_test_exprs.keys():
+            if test_expr_x.is_merged:
                 continue
 
-            if (not test_expr_x.is_positive and test_expr_x.equals_real_values) or (
-                test_expr_x.is_positive and test_expr_x.unequals_real_values
+            if (test_expr_x.is_negative and test_expr_x.equals_real_values) or (
+                not test_expr_x.is_negative and test_expr_x.unequals_real_values
             ):
                 for j, test_expr_y in enumerate(test_exprs):
-                    if j == i or j not in small_test_exprs.keys():
+                    if j == i or test_expr_y.is_merged:
                         continue
 
-                    if (test_expr_y.is_positive, test_expr_y.op) in (
+                    if (test_expr_y.is_negative, test_expr_y.op) in (
                         (
-                            test_expr_x.is_positive,
+                            test_expr_x.is_negative,
                             test_expr_x.op,
                         ),
                         (
-                            not test_expr_x.is_positive,
+                            not test_expr_x.is_negative,
                             test_expr_x.reverse_op,
                         ),
                     ) and tuple(test_expr_y.virtual_key()) == tuple(
@@ -872,25 +1075,22 @@ class _P3Analyzer:
                         test_expr_x.underlying_values.extend(
                             test_expr_y.real_underlying_values()
                         )
-                        test_expr_x.children.append(test_expr_y)
-                        small_test_exprs.pop(j)
+                        test_expr_x.merged_children.append(test_expr_y)
+                        test_expr_y.is_merged = True
 
         # merge phase 3
-        for i, test_expr in small_test_exprs.items():
+        for test_expr in test_exprs:
             if test_expr.number_of_real_values() == 1:
                 single_test_op = test_op_infos[test_expr.op].single_op
                 if single_test_op is not None:
                     # multiple_op => single_op
-                    small_test_exprs[i] = dataclasses.replace(
-                        test_expr,
-                        op=single_test_op,
-                        reverse_op=test_op_infos[single_test_op].reverse_op,
-                    )
-
-        return list(small_test_exprs.values())
+                    test_expr.op = single_test_op
+                    test_expr.reverse_op = test_op_infos[single_test_op].reverse_op
 
     @classmethod
-    def _remove_real_values(cls, test_expr: TestExpr, target_values: set[str]) -> None:
+    def _remove_real_values(
+        cls, test_expr: _P3TestExpr, target_values: set[str]
+    ) -> None:
         i = test_expr.number_of_subkeys
         for j in range(test_expr.number_of_subkeys, len(test_expr.values)):
             if test_expr.values[j] in target_values:
@@ -913,7 +1113,7 @@ class _P4Analyzer(Visitor):
     def __init__(
         self,
         unit_declaration: UnitDeclaration,
-        return_points: list[ReturnPoint],
+        return_points: list[_P3ReturnPoint],
         default_return_point_file_offsets: set[int],
     ) -> None:
         self._unit_declaration = unit_declaration

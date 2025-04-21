@@ -5,8 +5,7 @@ import uuid
 from xlsxwriter import Workbook
 from xlsxwriter.worksheet import Format
 
-from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
-from .parser import Transform
+from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Transform, Unit
 from .test_op_infos import replace_with_real_op
 
 
@@ -297,14 +296,18 @@ class ExcelGenerator:
             # When
             for input in inputs:
                 match_texts: list[str] = []
-                condition_tags_with_file_offsets: list[tuple[str, int, int]] = []
+                condition_tags: list[str] = []
                 for test_expr in and_expr.test_exprs:
+                    if test_expr.is_merged:
+                        continue
                     input_2 = test_expr.key
                     if input_2 == input:
                         match_texts.append(self._make_match_text(test_expr))
-                        condition_tags_with_file_offsets.extend(
-                            self._make_condition_tags_with_file_offsets(test_expr)
-                        )
+                        condition_tags.append(self._make_condition_tag(test_expr))
+                        for merged_test_expr in test_expr.merged_children:
+                            condition_tags.append(
+                                self._make_condition_tag(merged_test_expr)
+                            )
                 text = f"\nand\n".join(match_texts)
                 self._write_column(
                     self._row_index,
@@ -312,13 +315,11 @@ class ExcelGenerator:
                     text or "/",
                     self._cell_fmt,
                 )
-                if len(condition_tags_with_file_offsets) >= 1:
+                if len(condition_tags) >= 1:
                     self._write_comment(
                         self._row_index,
                         column_index,
-                        "; ".join(
-                            self._sort_condition_tags(condition_tags_with_file_offsets)
-                        ),
+                        "; ".join(condition_tags),
                     )
                 column_index += 1
 
@@ -361,74 +362,39 @@ class ExcelGenerator:
             lines.append("[No action]")
         else:
             for i, transform in enumerate(transform_list):
-                action_number = self._conceal_text(f"[action-{i+1}]")
+                # action_number = self._conceal_text(f"[action-{transform.rank}]") TODO
+                action_number = self._conceal_text(f"[action-{1+i}]")
                 line = f"{action_number}  " + transform.annotation
                 lines.append(line)
 
         lines.append("▶ WHEN")
         for i, and_expr in enumerate(and_exprs):
-            condition_tags_with_file_offsets: list[tuple[str, int, int]] = []
-            for test_expr in and_expr.test_exprs:
-                condition_tags_with_file_offsets.extend(
-                    self._make_condition_tags_with_file_offsets(test_expr)
-                )
+            condition_tags = list(map(self._make_condition_tag, and_expr.test_exprs))
 
-            if len(condition_tags_with_file_offsets) == 0:
+            if len(condition_tags) == 0:
                 lines.append("[No condition]")
                 break
 
-            condition_number = self._conceal_text(f"[condition-{i+1}]")
-            line = f"{condition_number}  " + "; ".join(
-                self._sort_condition_tags(condition_tags_with_file_offsets)
-            )
+            # condition_number = self._conceal_text(f"[condition-{and_expr.rank}]") TODO
+            condition_number = self._conceal_text(f"[condition-{1+i}]")
+            line = f"{condition_number}  " + "; ".join(condition_tags)
             lines.append(line)
 
         return "\n".join(lines)
 
     @classmethod
-    def _make_condition_tags_with_file_offsets(
-        cls, test_expr: TestExpr
-    ) -> list[tuple[str, int, int]]:
-        def make_condition_tag(test_expr: TestExpr) -> str:
-            if test_expr.is_positive:
-                return "✅ " + test_expr.fact
-            else:
-                return "❌ " + test_expr.fact
-
-        condition_tags_with_file_offsets = [
-            (
-                make_condition_tag(test_expr),
-                test_expr.file_offset_1,
-                test_expr.file_offset_2,
-            )
-        ]
-        for child_test_expr in test_expr.children:
-            condition_tags_with_file_offsets.append(
-                (
-                    make_condition_tag(child_test_expr),
-                    child_test_expr.file_offset_1,
-                    child_test_expr.file_offset_2,
-                )
-            )
-        return condition_tags_with_file_offsets
-
-    @classmethod
-    def _sort_condition_tags(
-        cls, condition_tags_with_file_offsets: list[tuple[str, int, int]]
-    ) -> list[str]:
-        return list(
-            map(
-                lambda x: x[0],
-                sorted(condition_tags_with_file_offsets, key=lambda x: (x[1], x[2])),
-            )
-        )
+    def _make_condition_tag(cls, test_expr: TestExpr) -> str:
+        if test_expr.is_negative:
+            return "❌ " + test_expr.fact
+        else:
+            return "✅ " + test_expr.fact
 
     def _make_match_text(self, test_expr: TestExpr) -> str:
         parts: list[str] = []
-        if test_expr.is_positive:
-            op = test_expr.op
-        else:
+        if test_expr.is_negative:
             op = test_expr.reverse_op
+        else:
+            op = test_expr.op
         op = replace_with_real_op(op)
 
         parts.append(self._hilight_text(op))

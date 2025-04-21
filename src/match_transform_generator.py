@@ -58,27 +58,30 @@ class MatchTransformGenerator:
         return unit_2
 
     def _dump_match(self, return_point_index: int, and_expr: AndExpr) -> dict:
-        def make_tag(test_expr: TestExpr) -> str:
-            if test_expr.is_positive:
-                return "✅ " + test_expr.fact
-            else:
+        def make_condition_tag(test_expr: TestExpr) -> str:
+            if test_expr.is_negative:
                 return "❌ " + test_expr.fact
+            else:
+                return "✅ " + test_expr.fact
 
         condition_list: list[dict] = []
 
         for test_expr in and_expr.test_exprs:
-            tags: list[str] = [make_tag(test_expr)]
-            for child_test_expr in test_expr.children:
-                tags.append(make_tag(child_test_expr))
+            if test_expr.is_merged:
+                continue
 
-            if test_expr.is_positive:
-                op = test_expr.op
-            else:
+            condition_tags: list[str] = [make_condition_tag(test_expr)]
+            for child_test_expr in test_expr.merged_children:
+                condition_tags.append(make_condition_tag(child_test_expr))
+
+            if test_expr.is_negative:
                 op = test_expr.reverse_op
+            else:
+                op = test_expr.op
             op = replace_with_real_op(op)
 
             condition = {
-                "__comment__": "; ".join(tags),
+                "__comment__": "; ".join(condition_tags),
                 "key": test_expr.key_index,
                 "__named_key__": test_expr.key,
                 "values": test_expr.underlying_values,
