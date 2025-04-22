@@ -1,4 +1,3 @@
-import dataclasses
 import math
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -46,7 +45,6 @@ class ReturnPoint:
 
 @dataclass
 class Transform:
-    rank: int
     spec: dict
     annotation: str
 
@@ -58,8 +56,8 @@ class OrExpr:
 
 @dataclass
 class AndExpr:
-    rank: int
     test_exprs: list["TestExpr"]
+    index: int
 
 
 @dataclass
@@ -72,6 +70,7 @@ class TestExpr:
     underlying_values: list[str]
     fact: str
     reverse_op: str
+    is_dismissed: bool
     is_merged: bool
     merged_children: list["TestExpr"]
 
@@ -79,16 +78,16 @@ class TestExpr:
 class Analyzer:
     __slots__ = (
         "_component_declaration",
-        "_reduce_return_points",
+        "_optimization_level",
     )
 
     def __init__(
         self,
         component_declaration: ComponentDeclaration,
-        reduce_return_points: bool = True,
+        optimization_level: int = 2,
     ) -> None:
         self._component_declaration = component_declaration
-        self._reduce_return_points = reduce_return_points
+        self._optimization_level = optimization_level
 
     def get_component(self) -> Component:
         return Component(
@@ -125,9 +124,7 @@ class Analyzer:
         )
         p2_return_points = p2_analyzer.get_return_points()
         p3_analyzer = _P3Analyzer(p2_return_points)
-        p3_return_points = p3_analyzer.simplify_return_points(
-            self._reduce_return_points
-        )
+        p3_return_points = p3_analyzer.simplify_return_points(self._optimization_level)
         _P4Analyzer(
             unit_declaration,
             p3_return_points,
@@ -503,22 +500,21 @@ class _P3OrExpr:
 
 class _P3AndExpr:
     __slots__ = (
-        "rank",
         "test_exprs",
+        "index",
         "test_ids",
-        "prefect_rank",
+        "rank",
     )
 
     def __init__(self) -> None:
-        self.rank = 0
         self.test_exprs: list[_P3TestExpr] = []
+        self.index = -1
 
         self.test_ids: set[int] = set()
-
-        self.prefect_rank = 0
+        self.rank: list[int] = []
 
     def to_and_expr(self) -> AndExpr:
-        return AndExpr(self.rank, [x.to_test_expr() for x in self.test_exprs])
+        return AndExpr([x.to_test_expr() for x in self.test_exprs], self.index)
 
 
 class _P3TestExpr:
@@ -531,6 +527,7 @@ class _P3TestExpr:
         "underlying_values",
         "fact",
         "reverse_op",
+        "is_dismissed",
         "is_merged",
         "merged_children",
         "file_offset_1",
@@ -551,6 +548,7 @@ class _P3TestExpr:
         self.fact = ""
         self.reverse_op = ""
         self.is_merged = False
+        self.is_dismissed = False
         self.merged_children: list[_P3TestExpr] = []
 
         self.file_offset_1 = _dummy_file_offset
@@ -586,6 +584,7 @@ class _P3TestExpr:
             self.underlying_values,
             self.fact,
             self.reverse_op,
+            self.is_dismissed,
             self.is_merged,
             [x.to_test_expr() for x in self.merged_children],
         )
@@ -593,18 +592,16 @@ class _P3TestExpr:
 
 class _P3Transform:
     __slots__ = (
-        "rank",
         "spec",
         "annotation",
     )
 
     def __init__(self) -> None:
-        self.rank = 0
         self.spec = {}
         self.annotation = ""
 
     def to_transform(self) -> Transform:
-        return Transform(self.rank, self.spec, self.annotation)
+        return Transform(self.spec, self.annotation)
 
 
 class _P3Analyzer:
@@ -617,27 +614,23 @@ class _P3Analyzer:
         self._raw_return_points = raw_return_points
         self._absolute_test_ids: dict[tuple[str, ...], int] = {}
 
-    def simplify_return_points(
-        self, reduce_return_points: bool
-    ) -> list[_P3ReturnPoint]:
+    def simplify_return_points(self, optimization_level: int) -> list[_P3ReturnPoint]:
         return_points = self._make_return_points()
 
-        if reduce_return_points:
+        if optimization_level >= 1:
             return_points = self._reduce_return_points(return_points)
 
-        all_and_exprs = self._sort_all_and_exprs(return_points)
-        self._set_and_expr_ranks(return_points)
-        self._set_transform_ranks(return_points)
+        all_and_exprs = self._arrange_all_and_exprs(return_points)
 
-        if False:  # TODO
-            self._optimize_and_exprs(all_and_exprs)
+        if optimization_level >= 2:
+            self._dismiss_redundant_and_exprs(all_and_exprs)
 
         self._merge_test_exprs(return_points)
 
         return return_points
 
     def _make_return_points(self) -> list[_P3ReturnPoint]:
-        def return_point_key(return_point: _P3ReturnPoint) -> float:
+        def return_point_rank(return_point: _P3ReturnPoint) -> float:
             if return_point.file_offset == _dummy_file_offset:
                 return math.inf
             else:
@@ -666,7 +659,7 @@ class _P3Analyzer:
             return_point.file_offset = raw_return_point.file_offset
             return_points.append(return_point)
 
-        return_points.sort(key=return_point_key)
+        return_points.sort(key=return_point_rank)
         return return_points
 
     def _expand_conditions(
@@ -691,7 +684,7 @@ class _P3Analyzer:
         return new_conditions
 
     def _make_or_expr(self, conditions: list[boolalg.Boolean]) -> _P3OrExpr:
-        def and_expr_key(and_expr: _P3AndExpr) -> Iterator[int]:
+        def and_expr_rank(and_expr: _P3AndExpr) -> Iterator[int]:
             for test_expr in and_expr.test_exprs:
                 yield test_expr.file_offset_1
                 yield test_expr.file_offset_2
@@ -707,7 +700,7 @@ class _P3Analyzer:
             for condition_2 in condition.args:
                 and_exprs_2.append(self._make_and_expr(condition_2))  # type: ignore
 
-            and_exprs_2.sort(key=lambda x: tuple(and_expr_key(x)))
+            and_exprs_2.sort(key=lambda x: tuple(and_expr_rank(x)))
             or_expr.and_exprs.extend(and_exprs_2)
 
         return or_expr
@@ -903,7 +896,7 @@ class _P3Analyzer:
 
         return list(map(lambda x: test_exprs[x], sorted(test_expr_indexes)))
 
-    def _sort_all_and_exprs(
+    def _arrange_all_and_exprs(
         self, return_points: list[_P3ReturnPoint]
     ) -> list[_P3AndExpr]:
         all_and_exprs: list[_P3AndExpr] = []
@@ -911,59 +904,51 @@ class _P3Analyzer:
             all_and_exprs.extend(return_point.or_expr.and_exprs)
 
         k = len(self._absolute_test_ids)
-        test_id_ref_counts: list[int] = (2 * k + 1) * [0]
+        test_id_ref_weights: list[int] = (2 * k + 1) * [0]
         for and_expr in all_and_exprs:
             n = len(and_expr.test_exprs)
             for i, test_expr in enumerate(and_expr.test_exprs):
-                ref_count = n - i
-                test_id_ref_counts[k + test_expr.test_id] += ref_count
-                test_id_ref_counts[k - test_expr.test_id] -= ref_count
+                weight = n - i
+                test_id_ref_weights[k + test_expr.test_id] += weight
+                test_id_ref_weights[k - test_expr.test_id] -= weight
 
-        def and_expr_key(and_expr: _P3AndExpr) -> Iterator[int]:
-            for test_expr in and_expr.test_exprs:
-                test_id_ref_count = test_id_ref_counts[k + test_expr.test_id]
-                yield test_id_ref_count
-                yield test_expr.file_offset_1
-                yield test_expr.file_offset_2
+        def and_expr_rank(and_expr: _P3AndExpr) -> list[int]:
+            if len(and_expr.rank) == 0:
+                for test_expr in and_expr.test_exprs:
+                    and_expr.rank.extend(
+                        (
+                            test_id_ref_weights[k + test_expr.test_id],
+                            test_expr.file_offset_1,
+                            test_expr.file_offset_2,
+                            int(test_expr.is_negative),
+                        )
+                    )
 
-        all_and_exprs.sort(key=lambda x: tuple(and_expr_key(x)))
-        for i, and_expr in enumerate(all_and_exprs):
-            and_expr.prefect_rank = 1 + i
+            return and_expr.rank
 
+        all_and_exprs.sort(key=lambda x: and_expr_rank(x))
+
+        i = 0
         for return_point in return_points:
-            return_point.or_expr.and_exprs.sort(key=lambda x: x.prefect_rank)
+            return_point.or_expr.and_exprs.sort(key=lambda x: x.rank)
+
+            for and_expr in return_point.or_expr.and_exprs:
+                and_expr.index = i
+                i += 1
 
         return all_and_exprs
 
     @classmethod
-    def _set_and_expr_ranks(cls, return_points: list[_P3ReturnPoint]) -> None:
-        number_of_and_exprs = 0
-
-        for return_point in return_points:
-            for and_expr in return_point.or_expr.and_exprs:
-                number_of_and_exprs += 1
-                and_expr.rank = number_of_and_exprs
-
-    @classmethod
-    def _set_transform_ranks(cls, return_points: list[_P3ReturnPoint]) -> None:
-        number_of_transforms = 0
-
-        for return_point in return_points:
-            for transform in return_point.transform_list:
-                number_of_transforms += 1
-                transform.rank = number_of_transforms
-
-    @classmethod
-    def _optimize_and_exprs(cls, all_and_exprs: list[_P3AndExpr]) -> None:
+    def _dismiss_redundant_and_exprs(cls, all_and_exprs: list[_P3AndExpr]) -> None:
         test_id_sets: set[tuple[int, ...]] = set()
 
         for i, and_expr in enumerate(all_and_exprs):
-            and_expr.rank = i + 1
+            and_expr.index = i
 
             new_test_id_list: list[int] = []
             for test_expr in and_expr.test_exprs:
                 if (*new_test_id_list, -test_expr.test_id) in test_id_sets:
-                    test_expr.fact = f"~{test_expr.fact}~"
+                    test_expr.is_dismissed = True
                     continue
 
                 new_test_id_list.append(test_expr.test_id)
@@ -1014,6 +999,10 @@ class _P3Analyzer:
             ):
                 for j, test_expr_y in enumerate(test_exprs):
                     if j == i or test_expr_y.is_merged:
+                        continue
+
+                    if test_expr_x.is_dismissed != test_expr_y.is_dismissed:
+                        # only merge test exprs that are both or neither dismissed
                         continue
 
                     if test_expr_y.op in (

@@ -1,8 +1,7 @@
 import json
 import os
-from collections.abc import Iterator
 
-from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Unit
+from .analyzer import AndExpr, Component, OrExpr, ReturnPoint, TestExpr, Unit
 from .test_op_infos import replace_with_real_op
 
 
@@ -35,14 +34,26 @@ class MatchTransformGenerator:
                 with open(output_file_name, "w") as f:
                     f.write(unit_data)
 
-    def _dump_unit(self, component: Component, unit: Unit) -> dict:
-        match_list: list[dict] = []
+    @classmethod
+    def _dump_unit(cls, component: Component, unit: Unit) -> dict:
         transform_list: list[dict] = []
+        match_list: list[dict] = []
 
-        for i, return_point in enumerate(unit.return_points):
+        number_of_and_exprs = 0
+        for return_point in unit.return_points:
+            number_of_and_exprs += len(return_point.or_expr.and_exprs)
+
+        all_and_exprs = number_of_and_exprs * [_dummy_and_expr]
+        return_point_indexes = number_of_and_exprs * [-1]
+        for return_point_index, return_point in enumerate(unit.return_points):
+            transform_list.append(cls._dump_transform(return_point_index, return_point))
+
             for and_expr in return_point.or_expr.and_exprs:
-                match_list.append(self._dump_match(i, and_expr))
-            transform_list.append(self._dump_transform(i, return_point))
+                all_and_exprs[and_expr.index] = and_expr
+                return_point_indexes[and_expr.index] = return_point_index
+
+        for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
+            match_list.append(cls._dump_match(and_expr, return_point_index))
 
         unit_2 = {
             "__comment__": f"{component.alias}: {unit.alias}",
@@ -57,54 +68,9 @@ class MatchTransformGenerator:
         }
         return unit_2
 
-    def _dump_match(self, return_point_index: int, and_expr: AndExpr) -> dict:
-        def make_condition_tag(test_expr: TestExpr) -> str:
-            if test_expr.is_negative:
-                return "❌ " + test_expr.fact
-            else:
-                return "✅ " + test_expr.fact
-
-        condition_list: list[dict] = []
-
-        for test_expr in and_expr.test_exprs:
-            if test_expr.is_merged:
-                continue
-
-            condition_tags: list[str] = [make_condition_tag(test_expr)]
-            for child_test_expr in test_expr.merged_children:
-                condition_tags.append(make_condition_tag(child_test_expr))
-
-            if test_expr.is_negative:
-                op = test_expr.reverse_op
-            else:
-                op = test_expr.op
-            op = replace_with_real_op(op)
-
-            condition = {
-                "__comment__": "; ".join(condition_tags),
-                "key": test_expr.key_index,
-                "__named_key__": test_expr.key,
-                "values": test_expr.underlying_values,
-                "__named_values__": test_expr.values,
-                "operator": op,
-            }
-            if test_expr.values == test_expr.underlying_values:
-                condition.pop("__named_values__")
-            condition_list.append(condition)
-
-        match = {
-            # "has_next": False,
-            # "tree": None,
-            "condition_node": {
-                "condition": condition_list,
-                "condition_type": 0,  # AND
-            },
-            "target_value_index": return_point_index,
-        }
-        return match
-
+    @classmethod
     def _dump_transform(
-        self, return_point_index: int, return_point: ReturnPoint
+        cls, return_point_index: int, return_point: ReturnPoint
     ) -> dict:
         transforms: list[dict] = []
 
@@ -143,3 +109,56 @@ class MatchTransformGenerator:
             "items": transforms,
         }
         return transform
+
+    @classmethod
+    def _dump_match(cls, and_expr: AndExpr, return_point_index: int) -> dict:
+        def make_condition_tag(test_expr: TestExpr) -> str:
+            if test_expr.is_negative:
+                return "❌ " + test_expr.fact
+            else:
+                return "✅ " + test_expr.fact
+
+        condition_list: list[dict] = []
+
+        for test_expr in and_expr.test_exprs:
+            if test_expr.is_dismissed:
+                continue
+            if test_expr.is_merged:
+                continue
+
+            condition_tags: list[str] = [make_condition_tag(test_expr)]
+            for child_test_expr in test_expr.merged_children:
+                condition_tags.append(make_condition_tag(child_test_expr))
+
+            if test_expr.is_negative:
+                op = test_expr.reverse_op
+            else:
+                op = test_expr.op
+            op = replace_with_real_op(op)
+
+            condition = {
+                "__comment__": "; ".join(condition_tags),
+                "key": test_expr.key_index,
+                "__named_key__": test_expr.key,
+                "values": test_expr.underlying_values,
+                "__named_values__": test_expr.values,
+                "operator": op,
+            }
+            if test_expr.values == test_expr.underlying_values:
+                condition.pop("__named_values__")
+            condition_list.append(condition)
+
+        match = {
+            # "has_next": False,
+            # "tree": None,
+            "condition_node": {
+                "condition": condition_list,
+                "condition_type": 0,  # AND
+            },
+            "target_value_index": return_point_index,
+        }
+        return match
+
+
+_dummy_and_expr = AndExpr([], -1)
+_dummy_return_point = ReturnPoint(OrExpr([]), [])

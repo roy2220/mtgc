@@ -487,7 +487,6 @@ class ExcelGenerator:
             lines.append("[No action]")
         else:
             for i, transform in enumerate(transform_list):
-                # action_number = self._conceal_text(f"[action-{transform.rank}]") TODO
                 action_number = self._conceal_text(f"[action-{1+i}]")
                 line = f"{action_number}  " + transform.annotation
                 lines.append(line)
@@ -500,7 +499,6 @@ class ExcelGenerator:
                 lines.append("[No condition]")
                 break
 
-            # condition_number = self._conceal_text(f"[condition-{and_expr.rank}]") TODO
             condition_number = self._conceal_text(f"[condition-{1+i}]")
             line = f"{condition_number}  " + "; ".join(condition_tags)
             lines.append(line)
