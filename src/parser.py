@@ -15,6 +15,14 @@ class ComponentDeclaration:
     source_location: SourceLocation
     name: str
     alias: str
+    bundles: list["BundleDeclaration"]
+
+
+@dataclass
+class BundleDeclaration:
+    source_location: SourceLocation
+    name: str
+    alias: str
     units: list["UnitDeclaration"]
 
 
@@ -201,35 +209,6 @@ class Parser:
             raise UnexpectedTokenError(t)
         return component_declaration
 
-    def _import_files(self):
-        while self._peek_token(1).type == TokenType.IMPORT_KEYWORD:
-            self._import_file()
-
-    def _import_file(self):
-        current_file_name = self._get_expected_token(
-            TokenType.IMPORT_KEYWORD
-        ).source_location.file_name
-        file_name, source_location = self._get_string_with_source_location()
-
-        if current_file_name != "<unnamed>":
-            current_dir_name = os.path.dirname(current_file_name)
-            file_name = os.path.join(current_dir_name, file_name)
-
-        try:
-            with open(file_name, "r") as f:
-                key_index_info_list = json.load(f)
-
-            jsonschema.validate(key_index_info_list, _key_index_info_list_schema)
-
-            for key_index_info in key_index_info_list:
-                key = key_index_info["Key"]
-                key_index = key_index_info["Idx"]
-
-                self._key_2_index[key] = key_index
-
-        except Exception as e:
-            raise ImportFailureError(source_location, file_name, e)
-
     def _do_get_token(self) -> Token:
         while True:
             t = self._scanner.get_token()
@@ -275,14 +254,69 @@ class Parser:
         component_name = self._get_identifier()
         self._get_expected_token(TokenType.AS_KEYWORD)
         component_alias = self._get_string()
-        self._get_expected_token(TokenType.OPEN_BRACE)
-        unit_declarations = self._get_unit_declarations()
-        self._get_expected_token(TokenType.CLOSE_BRACE)
+
+        self._import_files()
+
+        bundle_declarations = self._get_bundle_declarations()
         return ComponentDeclaration(
             source_location,
             component_name,
             component_alias,
-            unit_declarations,
+            bundle_declarations,
+        )
+
+    def _import_files(self):
+        while self._peek_token(1).type == TokenType.IMPORT_KEYWORD:
+            self._import_file()
+
+    def _import_file(self):
+        current_file_name = self._get_expected_token(
+            TokenType.IMPORT_KEYWORD
+        ).source_location.file_name
+        file_name, source_location = self._get_string_with_source_location()
+
+        if current_file_name != "<unnamed>":
+            current_dir_name = os.path.dirname(current_file_name)
+            file_name = os.path.join(current_dir_name, file_name)
+
+        try:
+            with open(file_name, "r") as f:
+                key_index_info_list = json.load(f)
+
+            jsonschema.validate(key_index_info_list, _key_index_info_list_schema)
+
+            for key_index_info in key_index_info_list:
+                key = key_index_info["Key"]
+                key_index = key_index_info["Idx"]
+
+                self._key_2_index[key] = key_index
+
+        except Exception as e:
+            raise ImportFailureError(source_location, file_name, e)
+
+    def _get_bundle_declarations(self) -> list[BundleDeclaration]:
+        bundle_declarations: list[BundleDeclaration] = []
+        while self._peek_token(1).type == TokenType.BUNDLE_KEYWORD:
+            bundle_declaration = self._get_bundle_declaration()
+            bundle_declarations.append(bundle_declaration)
+        return bundle_declarations
+
+    def _get_bundle_declaration(self) -> BundleDeclaration:
+        source_location = self._get_expected_token(
+            TokenType.BUNDLE_KEYWORD
+        ).source_location
+        bundle_name = self._get_identifier()
+        if bundle_name == "_":
+            # anonymous bundle
+            bundle_alias = ""
+        else:
+            self._get_expected_token(TokenType.AS_KEYWORD)
+            bundle_alias = self._get_string()
+        self._get_expected_token(TokenType.OPEN_BRACE)
+        unit_declarations = self._get_unit_declarations()
+        self._get_expected_token(TokenType.CLOSE_BRACE)
+        return BundleDeclaration(
+            source_location, bundle_name, bundle_alias, unit_declarations
         )
 
     def _get_unit_declarations(self) -> list[UnitDeclaration]:

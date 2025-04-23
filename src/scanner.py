@@ -28,8 +28,9 @@ class TokenType(enum.IntEnum):
     LOGICAL_OR = enum.auto()  # ||
     STRING_LITERAL = enum.auto()  # "..." or `...`
 
-    IMPORT_KEYWORD = enum.auto()  # import
     COMPONENT_KEYWORD = enum.auto()  # component
+    IMPORT_KEYWORD = enum.auto()  # import
+    BUNDLE_KEYWORD = enum.auto()  # bundle
     UNIT_KEYWORD = enum.auto()  # unit
     RETURN_KEYWORD = enum.auto()  # return
     TRANSFORM_KEYWORD = enum.auto()  # transform
@@ -69,6 +70,7 @@ _token_type_2_str: dict[TokenType, str] = {
     # ----------
     TokenType.IMPORT_KEYWORD: "`import`",
     TokenType.COMPONENT_KEYWORD: "`component`",
+    TokenType.BUNDLE_KEYWORD: "`bundle`",
     TokenType.UNIT_KEYWORD: "`unit`",
     TokenType.RETURN_KEYWORD: "`return`",
     TokenType.TRANSFORM_KEYWORD: "`transform`",
@@ -312,8 +314,9 @@ _following_identifier_letters = set(
 )
 
 _keyword_2_token_type = {
-    "import": TokenType.IMPORT_KEYWORD,
     "component": TokenType.COMPONENT_KEYWORD,
+    "import": TokenType.IMPORT_KEYWORD,
+    "bundle": TokenType.BUNDLE_KEYWORD,
     "unit": TokenType.UNIT_KEYWORD,
     "return": TokenType.RETURN_KEYWORD,
     "transform": TokenType.TRANSFORM_KEYWORD,

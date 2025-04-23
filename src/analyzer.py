@@ -6,6 +6,7 @@ import sympy
 from sympy.logic import boolalg
 
 from .parser import (
+    BundleDeclaration,
     CaseValue,
     ComponentDeclaration,
     CompositeCondiction,
@@ -25,6 +26,13 @@ from .test_op_infos import TestOpInfo, test_op_infos
 
 @dataclass
 class Component:
+    name: str
+    alias: str
+    bundles: list["Bundle"]
+
+
+@dataclass
+class Bundle:
     name: str
     alias: str
     units: list["Unit"]
@@ -93,14 +101,33 @@ class Analyzer:
         return Component(
             self._component_declaration.name,
             self._component_declaration.alias,
-            self._get_units(),
+            self._get_bundles(),
         )
 
-    def _get_units(self) -> list[Unit]:
+    def _get_bundles(self) -> list[Bundle]:
+        bundles: list[Bundle] = []
+        bundle_names: set[str] = set()
+
+        for bundle_declaration in self._component_declaration.bundles:
+            if bundle_declaration.name in bundle_names:
+                raise DuplicateBundleNameError(bundle_declaration)
+            bundle_names.add(bundle_declaration.name)
+
+            bundles.append(
+                Bundle(
+                    bundle_declaration.name,
+                    bundle_declaration.alias,
+                    self._get_units(bundle_declaration.units),
+                )
+            )
+
+        return bundles
+
+    def _get_units(self, unit_declarations: list[UnitDeclaration]) -> list[Unit]:
         units: list[Unit] = []
         unit_names: set[str] = set()
 
-        for unit_declaration in self._component_declaration.units:
+        for unit_declaration in unit_declarations:
             if unit_declaration.name in unit_names:
                 raise DuplicateUnitNameError(unit_declaration)
             unit_names.add(unit_declaration.name)
@@ -1153,11 +1180,11 @@ class Error(Exception):
         )
 
 
-class DuplicateCaseValueError(Error):
-    def __init__(self, case_value: CaseValue) -> None:
+class DuplicateBundleNameError(Error):
+    def __init__(self, bundle_declaration: BundleDeclaration) -> None:
         super().__init__(
-            case_value.source_location,
-            f"duplicate case value: {repr(case_value.value)}",
+            bundle_declaration.source_location,
+            f"duplicate bundle name: {repr(bundle_declaration.name)}",
         )
 
 
@@ -1166,6 +1193,14 @@ class DuplicateUnitNameError(Error):
         super().__init__(
             unit_declaration.source_location,
             f"duplicate unit name: {repr(unit_declaration.name)}",
+        )
+
+
+class DuplicateCaseValueError(Error):
+    def __init__(self, case_value: CaseValue) -> None:
+        super().__init__(
+            case_value.source_location,
+            f"duplicate case value: {repr(case_value.value)}",
         )
 
 

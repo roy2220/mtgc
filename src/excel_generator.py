@@ -8,7 +8,7 @@ from xlsxwriter import Workbook
 from xlsxwriter.utility import xl_rowcol_to_cell
 from xlsxwriter.worksheet import Format
 
-from .analyzer import AndExpr, Component, ReturnPoint, TestExpr, Transform, Unit
+from .analyzer import AndExpr, Bundle, Component, ReturnPoint, TestExpr, Transform, Unit
 from .test_op_infos import replace_with_real_op
 
 
@@ -253,11 +253,18 @@ class ExcelGenerator:
     def _dump_component(self, component: Component) -> None:
         self._row_index = 0
 
-        for unit in component.units:
-            self._dump_unit(unit)
+        for bundle in component.bundles:
+            self._dump_bundle(component, bundle)
 
-    def _dump_unit(self, unit: Unit) -> None:
-        self._business_unit_desc = unit.alias
+    def _dump_bundle(self, component: Component, bundle: Bundle) -> None:
+        for unit in bundle.units:
+            self._dump_unit(component, bundle, unit)
+
+    def _dump_unit(self, component: Component, bundle: Bundle, unit: Unit) -> None:
+        if bundle.name == "_":
+            self._business_unit_desc = unit.alias
+        else:
+            self._business_unit_desc = bundle.alias + " - " + unit.alias
         self._business_unit_loc = (self._row_index, 0)
         self._business_scenario_num = 0
         self._business_scenario_loc = (-1, -1)
@@ -276,7 +283,7 @@ class ExcelGenerator:
             0,
             self._row_index - 1,
             0,
-            f"{unit.alias}\n{self._conceal_text("("+unit.name+")")}",
+            self._make_business_unit_cell_text(component, bundle, unit),
             self._business_unit_cell_fmt,
         )
 
@@ -379,6 +386,16 @@ class ExcelGenerator:
 
             self._row_index += 1
 
+    def _make_business_unit_cell_text(
+        self, component: Component, bundle: Bundle, unit: Unit
+    ) -> str:
+        if bundle.name == "_":
+            return (
+                f"{unit.alias}\n{self._conceal_text(f"({component.name}_{unit.name})")}"
+            )
+        else:
+            return f"{bundle.alias} - {unit.alias}\n{self._conceal_text(f"({component.name}_{bundle.name}_{unit.name})")}"
+
     def _dump_return_point(
         self,
         return_point: ReturnPoint,
@@ -402,7 +419,7 @@ class ExcelGenerator:
                     column_index,
                     self._row_index,
                     column_index,
-                    self._make_business_scenario_text(
+                    self._make_business_scenario_cell_text(
                         and_exprs, return_point.transform_list
                     ),
                     self._business_scenario_cell_fmt,
@@ -477,7 +494,7 @@ class ExcelGenerator:
 
             self._row_index += 1
 
-    def _make_business_scenario_text(
+    def _make_business_scenario_cell_text(
         self, and_exprs: list[AndExpr], transform_list: list[Transform]
     ) -> str:
         lines: list[str] = []
