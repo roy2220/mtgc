@@ -14,6 +14,12 @@ from .test_op_infos import load_custom_test_op_infos_from_file
 def main() -> None:
     parser = argparse.ArgumentParser(prog="mtgc")
     parser.add_argument(
+        "DIR",
+        nargs=1,
+        type=str,
+        help="input dir containing mtg files",
+    )
+    parser.add_argument(
         "-e",
         metavar="FILE",
         nargs=1,
@@ -30,15 +36,19 @@ def main() -> None:
         help="output dir for match-transform files",
     )
     parser.add_argument(
-        "DIR",
+        "-d",
+        metavar="FILE",
         nargs=1,
         type=str,
-        help="input dir containing mtg files",
+        required=False,
+        help="output debug log file",
     )
     namespace = parser.parse_args(sys.argv[1:])
     mtg_dir_name = namespace.DIR[0]
     excel_file_name = namespace.e[0]
+    debug_log_file_name = namespace.d[0]
     match_transform_dir_name = namespace.m[0]
+
     mtg_file_names = glob.glob(os.path.join(mtg_dir_name, "*.mtg"))
     mtg_file_names.sort()
 
@@ -63,7 +73,7 @@ def main() -> None:
     excel_generator.dump_components()
 
     match_transform_generator = MatchTransformGenerator(
-        components, match_transform_dir_name
+        components, match_transform_dir_name, debug_log_file_name
     )
     match_transform_generator.dump_components()
 

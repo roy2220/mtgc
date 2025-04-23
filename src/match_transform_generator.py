@@ -9,14 +9,22 @@ class MatchTransformGenerator:
     __slots__ = (
         "_components",
         "_output_dir_name",
+        "_debug_log_file_name",
     )
 
-    def __init__(self, components: list[Component], output_dir_name: str) -> None:
+    def __init__(
+        self,
+        components: list[Component],
+        output_dir_name: str,
+        debug_log_file_name: str | None,
+    ) -> None:
         self._components = components
         self._output_dir_name = output_dir_name
+        self._debug_log_file_name = debug_log_file_name
 
     def dump_components(self) -> None:
         output_file_names: set[str] = set()
+        debug_log: list[str] = []
 
         for component in self._components:
             for unit in component.units:
@@ -29,13 +37,19 @@ class MatchTransformGenerator:
                     )
 
                 unit_data = json.dumps(
-                    self._dump_unit(component, unit), ensure_ascii=False, indent=2
+                    self._dump_unit(component, unit, debug_log),
+                    ensure_ascii=False,
+                    indent=2,
                 )
                 with open(output_file_name, "w") as f:
                     f.write(unit_data)
 
+        if self._debug_log_file_name is not None:
+            with open(self._debug_log_file_name, "w") as f:
+                f.write("\n".join(debug_log))
+
     @classmethod
-    def _dump_unit(cls, component: Component, unit: Unit) -> dict:
+    def _dump_unit(cls, component: Component, unit: Unit, debug_log: list[str]) -> dict:
         transform_list: list[dict] = []
         match_list: list[dict] = []
 
@@ -45,12 +59,16 @@ class MatchTransformGenerator:
 
         all_and_exprs = number_of_and_exprs * [_dummy_and_expr]
         return_point_indexes = number_of_and_exprs * [-1]
+        original_and_expr_index = 0
+        original_and_expr_indexes = number_of_and_exprs * [-1]
         for return_point_index, return_point in enumerate(unit.return_points):
             transform_list.append(cls._dump_transform(return_point_index, return_point))
 
             for and_expr in return_point.or_expr.and_exprs:
                 all_and_exprs[and_expr.index] = and_expr
                 return_point_indexes[and_expr.index] = return_point_index
+                original_and_expr_indexes[and_expr.index] = original_and_expr_index
+                original_and_expr_index += 1
 
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             match_list.append(cls._dump_match(and_expr, return_point_index))
@@ -66,6 +84,24 @@ class MatchTransformGenerator:
             },
             "target_values": transform_list,
         }
+
+        debug_log.append(f"========== {component.alias}: {unit.alias} ==========")
+        for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
+            condition_tags: list[str] = []
+            for test_expr in and_expr.test_exprs:
+                if test_expr.is_negative:
+                    condition_tag = "❌ " + test_expr.fact
+                else:
+                    condition_tag = "✅ " + test_expr.fact
+                if test_expr.is_dismissed:
+                    condition_tag = "\u0336".join(condition_tag) + "\u0336"
+                condition_tags.append(condition_tag)
+            debug_log.append(
+                f"M{original_and_expr_indexes[and_expr.index]} => T{return_point_index}: "
+                + "; ".join(condition_tags)
+            )
+        debug_log.append("")
+
         return unit_2
 
     @classmethod
