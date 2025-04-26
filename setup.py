@@ -1,4 +1,19 @@
+import os
 from distutils.core import setup
+
+
+def parse_requirements() -> list[str]:
+    requirements = []
+    with open(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "requirements.txt",
+        ),
+        "r",
+    ) as f:
+        requirements.append(f.readline().strip())
+    return requirements
+
 
 setup(
     name="mtgc",
@@ -12,9 +27,5 @@ setup(
         ],
     },
     python_requires=">=3.12",
-    install_rquires=[
-        "sympy==1.13.3",
-        "xlsxwriter==3.2.2",
-        "jsonschema==4.23.0",
-    ],
+    install_rquires=parse_requirements(),
 )

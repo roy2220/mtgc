@@ -28,21 +28,16 @@ class MatchTransformGenerator:
 
         for component in self._components:
             for bundle in component.bundles:
-                if bundle.name == "_":
-                    output_file_name = os.path.join(
-                        self._output_dir_name, f"{component.name}.json"
-                    )
-                else:
-                    output_file_name = os.path.join(
-                        self._output_dir_name, f"{component.name}_{bundle.name}.json"
-                    )
+                output_file_name = os.path.join(
+                    self._output_dir_name, bundle.name + ".json"
+                )
                 if output_file_name in output_file_names:
                     raise ValueError(
                         f"output file {repr(output_file_name)} name conflicts"
                     )
 
                 bundle_data = json.dumps(
-                    self._dump_bundle(component, bundle, debug_log),
+                    self._dump_bundle(bundle, debug_log),
                     ensure_ascii=False,
                     indent=2,
                 )
@@ -54,22 +49,18 @@ class MatchTransformGenerator:
                 f.write("\n".join(debug_log))
 
     @classmethod
-    def _dump_bundle(
-        cls, component: Component, bundle: Bundle, debug_log: list[str]
-    ) -> list[dict]:
+    def _dump_bundle(cls, bundle: Bundle, debug_log: list[str]) -> list[dict]:
         unit_list: list[dict] = []
 
         for unit in bundle.units:
             unit_list.append(
-                cls._dump_unit(component, bundle, unit, debug_log),
+                cls._dump_unit(unit, debug_log),
             )
 
         return unit_list
 
     @classmethod
-    def _dump_unit(
-        cls, component: Component, bundle: Bundle, unit: Unit, debug_log: list[str]
-    ) -> dict:
+    def _dump_unit(cls, unit: Unit, debug_log: list[str]) -> dict:
         transform_list: list[dict] = []
         match_list: list[dict] = []
 
@@ -93,13 +84,8 @@ class MatchTransformGenerator:
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             match_list.append(cls._dump_match(and_expr, return_point_index))
 
-        if bundle.name == "_":
-            unit_comment = f"{component.alias}: {bundle.alias} - {unit.alias}"
-        else:
-            unit_comment = f"{component.alias}: {unit.alias}"
-
         unit_2 = {
-            "__comment__": unit_comment,
+            "__unit_name__": unit.name,
             "tree": {
                 # "has_next": False,
                 # "key": 0,
@@ -110,7 +96,7 @@ class MatchTransformGenerator:
             "target_values": transform_list,
         }
 
-        debug_log.append(f"========== {unit_comment} ==========")
+        debug_log.append(f"========== {unit.name} ==========")
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             condition_tags: list[str] = []
             for test_expr in and_expr.test_exprs:

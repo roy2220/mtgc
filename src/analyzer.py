@@ -34,7 +34,6 @@ class Component:
 @dataclass
 class Bundle:
     name: str
-    alias: str
     units: list["Unit"]
 
 
@@ -116,7 +115,6 @@ class Analyzer:
             bundles.append(
                 Bundle(
                     bundle_declaration.name,
-                    bundle_declaration.alias,
                     self._get_units(bundle_declaration.units),
                 )
             )

@@ -4,8 +4,11 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from typing import Any
 
 import jsonschema
+from gjson import GJSON
+from gjson.exceptions import GJSONParseError
 
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
 
@@ -22,7 +25,6 @@ class ComponentDeclaration:
 class BundleDeclaration:
     source_location: SourceLocation
     name: str
-    alias: str
     units: list["UnitDeclaration"]
 
 
@@ -252,8 +254,10 @@ class Parser:
             TokenType.COMPONENT_KEYWORD
         ).source_location
         component_name = self._get_identifier()
-        self._get_expected_token(TokenType.AS_KEYWORD)
-        component_alias = self._get_string()
+        component_alias = ""
+        if self._peek_token(1).type == TokenType.AS_KEYWORD:
+            self._discard_tokens(1)
+            component_alias = self._get_string()
 
         self._import_files()
 
@@ -306,18 +310,10 @@ class Parser:
             TokenType.BUNDLE_KEYWORD
         ).source_location
         bundle_name = self._get_identifier()
-        if bundle_name == "_":
-            # anonymous bundle
-            bundle_alias = ""
-        else:
-            self._get_expected_token(TokenType.AS_KEYWORD)
-            bundle_alias = self._get_string()
         self._get_expected_token(TokenType.OPEN_BRACE)
         unit_declarations = self._get_unit_declarations()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return BundleDeclaration(
-            source_location, bundle_name, bundle_alias, unit_declarations
-        )
+        return BundleDeclaration(source_location, bundle_name, unit_declarations)
 
     def _get_unit_declarations(self) -> list[UnitDeclaration]:
         unit_declarations: list[UnitDeclaration] = []
@@ -331,8 +327,10 @@ class Parser:
             TokenType.UNIT_KEYWORD
         ).source_location
         unit_name = self._get_identifier()
-        self._get_expected_token(TokenType.AS_KEYWORD)
-        unit_alias = self._get_string()
+        unit_alias = ""
+        if self._peek_token(1).type == TokenType.AS_KEYWORD:
+            self._discard_tokens(1)
+            unit_alias = self._get_string()
         default_transform_list = self._maybe_get_default_transform_list()
         self._get_expected_token(TokenType.OPEN_BRACE)
         program = self._get_statements()
@@ -367,10 +365,16 @@ class Parser:
     def _get_transform(self) -> Transform:
         self._get_expected_token(TokenType.TRANSFORM_KEYWORD)
         self._get_expected_token(TokenType.OPEN_PAREN)
-        transform_literal, source_location = self._get_string_with_source_location()
+        transform_spec = self._get_transform_spec()
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
-        transform_annotation = self._get_string()
+        transform_annotation = _render_string_template(
+            *self._get_string_with_source_location(), transform_spec
+        )
+        return Transform(transform_spec, transform_annotation)
+
+    def _get_transform_spec(self) -> dict:
+        transform_literal, source_location = self._get_string_with_source_location()
 
         try:
             transform_spec = json.loads(transform_literal)
@@ -453,7 +457,7 @@ class Parser:
                             raise UnknownKeyError(source_location, op_type)
                 operator["underlying_op_type"] = underlying_op_type
 
-        return Transform(transform_spec, transform_annotation)
+        return transform_spec
 
     def _get_statements(self) -> list[Statement]:
         statements: list[Statement] = []
@@ -487,10 +491,10 @@ class Parser:
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.OPEN_BRACE)
 
-        case_clause = self._get_case_clause()
+        case_clause = self._get_case_clause(key)
         case_clauses: list[CaseClause] = [case_clause]
         while self._peek_token(1).type == TokenType.CASE_KEYWORD:
-            case_clause = self._get_case_clause()
+            case_clause = self._get_case_clause(key)
             case_clauses.append(case_clause)
 
         default_case_clause = self._maybe_get_default_case_clause()
@@ -500,14 +504,14 @@ class Parser:
             source_location, key, key_index, case_clauses, default_case_clause
         )
 
-    def _get_case_clause(self) -> CaseClause:
+    def _get_case_clause(self, key: str) -> CaseClause:
         source_location = self._get_expected_token(
             TokenType.CASE_KEYWORD
         ).source_location
         case_values: list[CaseValue] = []
 
         while True:
-            case_value = self._get_case_value()
+            case_value = self._get_case_value(key)
             case_values.append(case_value)
 
             if self._peek_token(1).type != TokenType.COMMA:
@@ -520,10 +524,13 @@ class Parser:
         body = self._get_statements()
         return CaseClause(source_location, case_values, body)
 
-    def _get_case_value(self) -> CaseValue:
+    def _get_case_value(self, key) -> CaseValue:
         value, source_location = self._get_string_with_source_location()
         self._get_expected_token(TokenType.AS_KEYWORD)
-        fact = self._get_string()
+        fact = _render_string_template(
+            *self._get_string_with_source_location(),
+            {"key": key, "op": "eq", "values": [value]},
+        )
         return CaseValue(source_location, value, fact)
 
     def _maybe_get_default_case_clause(self) -> DefaultCaseClause:
@@ -664,7 +671,10 @@ class Parser:
 
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
-        fact = self._get_string()
+        fact = _render_string_template(
+            *self._get_string_with_source_location(),
+            {"key": key, "op": op, "values": values},
+        )
 
         return TestCondiction(
             source_location, key, key_index, op, values, underlying_values, fact
@@ -744,13 +754,29 @@ _transform_schema = {
                 "type": "object",
                 "properties": {
                     "from": {
-                        "type": "array",
-                        "items": {"type": "string", "minLength": 1},
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {"type": "string", "minLength": 1},
+                                "minItems": 1,
+                            },
+                            {
+                                "type": "null",
+                            },
+                        ]
                     },
                     "op": {"type": "string", "minLength": 1},
                     "values": {
-                        "type": "array",
-                        "items": {"type": "string"},
+                        "oneOf": [
+                            {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "minItems": 1,
+                            },
+                            {
+                                "type": "null",
+                            },
+                        ]
                     },
                     "op_type": {"type": "string"},
                 },
@@ -783,6 +809,96 @@ def _evaluate_single_line_string_literal(t: Token, buffer: io.StringIO):
                     raise InvalidStringLiteralError(t)
 
         buffer.write(c)
+
+
+_string_template_query_pattern = re.compile(
+    r"""
+    (?:
+        \$\$
+    )
+    |
+    (?:
+        \$\(
+        (
+            (?:
+                (?:
+                    \\\)
+                )
+                |
+                [^\)]
+            )+
+        )
+        (
+            \)
+        )?
+    )
+    """.replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    )
+)
+
+
+def _render_string_template(
+    string_template: str, source_location: SourceLocation, mapping: dict
+) -> str:
+    def do_query(match: re.Match[str]) -> str:
+        if match.group(0) == "$$":
+            return "$"
+
+        query = match.group(1).replace(r"\)", ")")
+        closing_parentheses = match.group(2)
+        if closing_parentheses is None:
+            raise InvalidStringTemplateError(
+                source_location, string_template, "missing ')'"
+            )
+
+        gjson_obj = GJSON(mapping)
+        gjson_obj.register_modifier("slice", _slice_gjson_modifier)
+        try:
+            value = gjson_obj.get(query)
+        except GJSONParseError as e:
+            raise InvalidStringTemplateError(source_location, string_template, str(e))
+        return _convert_obj_to_text(value)
+
+    return _string_template_query_pattern.sub(do_query, string_template)
+
+
+def _slice_gjson_modifier(options: dict[str, Any], obj: Any, last: bool) -> Any:
+    if not isinstance(obj, list):
+        return None
+    start = options.get("start")
+    if start is None:
+        start = 0
+    else:
+        if not isinstance(start, int) or start < 0:
+            return None
+    end = options.get("end")
+    n = len(obj)
+    if end is None:
+        end = n
+    else:
+        if not isinstance(end, int) or end < 0:
+            return None
+        if end > n:
+            end = n
+    if start >= end:
+        return []
+    return obj[start:end]
+
+
+def _convert_obj_to_text(obj: Any) -> str:
+    if isinstance(obj, str):
+        if obj == "":
+            return '""'
+        return obj
+
+    elif isinstance(obj, list):
+        if all(isinstance(x, str) for x in obj):
+            return "／".join('""' if x == "" else x for x in obj)
+
+    return json.dumps(obj, ensure_ascii=False)
 
 
 class Error(Exception):
@@ -828,4 +944,14 @@ class InvalidTransformLiteralError(Error):
         super().__init__(
             source_location,
             f"invalid transform literal {repr(transform_literal)}, {description}",
+        )
+
+
+class InvalidStringTemplateError(Error):
+    def __init__(
+        self, source_location: SourceLocation, string_template: str, description: str
+    ) -> None:
+        super().__init__(
+            source_location,
+            f"invalid transform literal {repr(string_template)}, {description}",
         )

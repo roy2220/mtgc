@@ -18,7 +18,7 @@ class _SymbolReference:
     symbol_key: str
     worksheet_name: str
     loc: tuple[int, int]
-    business_unit_desc: str
+    business_unit_name: str
     business_unit_loc: tuple[int, int]
     business_scenario_num: int
     business_scenario_loc: tuple[int, int]
@@ -60,7 +60,7 @@ class ExcelGenerator:
         "_worksheet_name",
         "_worksheet",
         "_row_index",
-        "_business_unit_desc",
+        "_business_unit_name",
         "_business_unit_loc",
         "_business_scenario_num",
         "_business_scenario_loc",
@@ -79,7 +79,10 @@ class ExcelGenerator:
         index_worksheet = self._workbook.add_worksheet("Index")
 
         for component in self._components:
-            self._worksheet_name = component.alias
+            if component.alias == "":
+                self._worksheet_name = component.name
+            else:
+                self._worksheet_name = component.alias
             self._worksheet = self._workbook.add_worksheet(self._worksheet_name)
             self._dump_component(component)
 
@@ -120,7 +123,6 @@ class ExcelGenerator:
         )
         self._business_unit_cell_fmt = self._workbook.add_format(
             {
-                "align": "center",
                 **common_format_properties,
             }
         )
@@ -254,17 +256,14 @@ class ExcelGenerator:
         self._row_index = 0
 
         for bundle in component.bundles:
-            self._dump_bundle(component, bundle)
+            self._dump_bundle(bundle)
 
-    def _dump_bundle(self, component: Component, bundle: Bundle) -> None:
+    def _dump_bundle(self, bundle: Bundle) -> None:
         for unit in bundle.units:
-            self._dump_unit(component, bundle, unit)
+            self._dump_unit(unit)
 
-    def _dump_unit(self, component: Component, bundle: Bundle, unit: Unit) -> None:
-        if bundle.name == "_":
-            self._business_unit_desc = unit.alias
-        else:
-            self._business_unit_desc = bundle.alias + " - " + unit.alias
+    def _dump_unit(self, unit: Unit) -> None:
+        self._business_unit_name = unit.name
         self._business_unit_loc = (self._row_index, 0)
         self._business_scenario_num = 0
         self._business_scenario_loc = (-1, -1)
@@ -283,7 +282,7 @@ class ExcelGenerator:
             0,
             self._row_index - 1,
             0,
-            self._make_business_unit_cell_text(component, bundle, unit),
+            self._make_business_unit_cell_text(unit),
             self._business_unit_cell_fmt,
         )
 
@@ -386,15 +385,11 @@ class ExcelGenerator:
 
             self._row_index += 1
 
-    def _make_business_unit_cell_text(
-        self, component: Component, bundle: Bundle, unit: Unit
-    ) -> str:
-        if bundle.name == "_":
-            return (
-                f"{unit.alias}\n{self._conceal_text(f"({component.name}_{unit.name})")}"
-            )
+    def _make_business_unit_cell_text(self, unit: Unit) -> str:
+        if unit.alias == "":
+            return unit.name
         else:
-            return f"{bundle.alias} - {unit.alias}\n{self._conceal_text(f"({component.name}_{bundle.name}_{unit.name})")}"
+            return f"{unit.name}\n{self._conceal_text("-- " + unit.alias)}"
 
     def _dump_return_point(
         self,
@@ -555,7 +550,11 @@ class ExcelGenerator:
             parts.append(self._hilight_text(operator["op"]))
             parts.append("(")
 
-            from1 = operator.get("from", []).copy()
+            from1 = operator.get("from")
+            if from1 is None:
+                from1 = []
+            else:
+                from1 = from1.copy()
             for i, v in enumerate(from1):
                 from1[i] = self._hilight_text(v)
             if len(from1) >= 1:
@@ -563,7 +562,11 @@ class ExcelGenerator:
                 parts.append("=")
                 parts.append(json.dumps(from1, ensure_ascii=False))
 
-            values = operator.get("values", []).copy()
+            values = operator.get("values")
+            if values is None:
+                values = []
+            else:
+                values = values.copy()
             for i, v in enumerate(values):
                 values[i] = self._hilight_text(v)
             if len(values) >= 1:
@@ -684,7 +687,7 @@ class ExcelGenerator:
                     column_index,
                     url_2,
                     self._hyperlink_cell_fmt,
-                    string=symbol_reference.business_unit_desc,
+                    string=symbol_reference.business_unit_name,
                 )
             else:
                 url_2 = f"internal:'{symbol_reference.worksheet_name}'!{xl_rowcol_to_cell(*symbol_reference.business_scenario_loc)}"
@@ -693,7 +696,7 @@ class ExcelGenerator:
                     column_index,
                     url_2,
                     self._hyperlink_cell_fmt,
-                    string=f"{symbol_reference.business_unit_desc} - Scenario {symbol_reference.business_scenario_num}",
+                    string=f"{symbol_reference.business_unit_name} - Scenario {symbol_reference.business_scenario_num}",
                 )
             column_index += 1
 
@@ -711,7 +714,7 @@ class ExcelGenerator:
                 symbol_key,
                 self._worksheet_name,
                 (self._row_index, column_index),
-                self._business_unit_desc,
+                self._business_unit_name,
                 self._business_unit_loc,
                 self._business_scenario_num,
                 self._business_scenario_loc,
@@ -729,7 +732,7 @@ class ExcelGenerator:
                         symbol_key,
                         self._worksheet_name,
                         (self._row_index, column_index),
-                        self._business_unit_desc,
+                        self._business_unit_name,
                         self._business_unit_loc,
                         self._business_scenario_num,
                         self._business_scenario_loc,
@@ -740,14 +743,20 @@ class ExcelGenerator:
         self, transform: Transform, column_index: int
     ) -> None:
         for operator in transform.spec["operators"]:
-            for symbol_key in operator.get("from", []) + operator.get("expr_keys", []):
+            from1 = operator.get("from")
+            if from1 is None:
+                from1 = []
+            expr_keys = operator.get("expr_keys")
+            if expr_keys is None:
+                expr_keys = []
+            for symbol_key in from1 + expr_keys:
                 self._symbol_references.append(
                     _SymbolReference(
                         _SymbolReferenceKind.THEN_EXTRA,
                         symbol_key,
                         self._worksheet_name,
                         (self._row_index, column_index),
-                        self._business_unit_desc,
+                        self._business_unit_name,
                         self._business_unit_loc,
                         self._business_scenario_num,
                         self._business_scenario_loc,

@@ -1,3 +1,5 @@
 **/*.pyc
+/*.egg-info
 /build
-/mtgc.egg-info
+/venv
+/.envrc
