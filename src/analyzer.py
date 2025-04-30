@@ -11,7 +11,9 @@ from .parser import (
     ComponentDeclaration,
     CompositeCondiction,
     ConstantCondiction,
+    GotoStatement,
     IfStatement,
+    Label,
     OpType,
     ReturnStatement,
     Statement,
@@ -162,11 +164,15 @@ class _P1Analyzer(Visitor):
     __slots__ = (
         "_unit_declaration",
         "_link_setter_stack",
+        "_labeled_return_statements",
+        "_goto_statements",
     )
 
     def __init__(self, unit_declaration: UnitDeclaration) -> None:
         self._unit_declaration = unit_declaration
         self._link_setter_stack: list[Callable[[Statement], None]] = []
+        self._labeled_return_statements: dict[str, ReturnStatement] = {}
+        self._goto_statements: list[GotoStatement] = []
 
     def get_program_link(self) -> Statement:
         program_link = None
@@ -182,20 +188,45 @@ class _P1Analyzer(Visitor):
             raise MissingReturnStatementError(self._unit_declaration.source_location)
 
         assert program_link is not None
+
+        for goto_statement in self._goto_statements:
+            return_statement = self._labeled_return_statements.get(
+                goto_statement.label_name
+            )
+            if return_statement is None:
+                raise UndefinedLabelError(goto_statement)
+            goto_statement.return_statement = return_statement
+
         return program_link
 
     def _visit_block(self, statements: list[Statement]) -> None:
         first_link_setter_index = len(self._link_setter_stack) - 1
 
-        for statement in statements:
+        for i, statement in enumerate(statements):
             for link_setter in self._link_setter_stack[first_link_setter_index:]:
                 link_setter(statement)
             del self._link_setter_stack[first_link_setter_index:]
 
             if isinstance(statement, ReturnStatement):
-                break
+                self._add_labeled_return_statement(statement)
+                for statement in statements[i + 1 :]:
+                    if isinstance(statement, ReturnStatement):
+                        self._add_labeled_return_statement(statement)
+                return
+
+            if isinstance(statement, GotoStatement):
+                self._goto_statements.append(statement)
+                return
 
             statement.accept_visit(self)
+
+    def _add_labeled_return_statement(self, return_statement: ReturnStatement) -> None:
+        label = return_statement.label
+        if label is None:
+            return
+        if label.name in self._labeled_return_statements.keys():
+            raise DuplicateLabelNameError(label)
+        self._labeled_return_statements[label.name] = return_statement
 
     def visit_if_statement(self, if_statement: IfStatement) -> None:
         def set_link_1(s: Statement) -> None:
@@ -324,11 +355,17 @@ class _P2Analyzer(Visitor):
             self._return_points.file_offset_2_item[file_offset] = return_point
         return_point.conditions.append(condition)
 
+    def visit_goto_statement(self, goto_statement: GotoStatement) -> None:
+        s = goto_statement.return_statement
+        assert s is not None
+        s.accept_visit(self)
+
     def visit_if_statement(self, if_statement: IfStatement) -> None:
         if_statement.condition.accept_visit(self)
 
-        if (s := if_statement.body_link) is not None:
-            s.accept_visit(self)
+        s = if_statement.body_link
+        assert s is not None
+        s.accept_visit(self)
 
         other_condition = boolalg.Not(self._condition_stack.pop())
 
@@ -339,8 +376,9 @@ class _P2Analyzer(Visitor):
                 other_condition, self._condition_stack[-1]
             )
 
-            if (s := else_if_clause.body_link) is not None:
-                s.accept_visit(self)
+            s = else_if_clause.body_link
+            assert s is not None
+            s.accept_visit(self)
 
             other_condition = boolalg.And(
                 other_condition, boolalg.Not(self._condition_stack.pop())
@@ -348,8 +386,9 @@ class _P2Analyzer(Visitor):
 
         self._condition_stack.append(other_condition)
 
-        if (s := if_statement.else_clause.body_link) is not None:
-            s.accept_visit(self)
+        s = if_statement.else_clause.body_link
+        assert s is not None
+        s.accept_visit(self)
 
         del self._condition_stack[-1]
 
@@ -395,8 +434,9 @@ class _P2Analyzer(Visitor):
             assert condition is not None
             self._condition_stack.append(condition)
 
-            if (s := case_clause.body_link) is not None:
-                s.accept_visit(self)
+            s = case_clause.body_link
+            assert s is not None
+            s.accept_visit(self)
 
             del self._condition_stack[-1]
 
@@ -408,8 +448,9 @@ class _P2Analyzer(Visitor):
         assert other_condition is not None
         self._condition_stack.append(other_condition)
 
-        if (s := switch_statement.default_case_clause.body_link) is not None:
-            s.accept_visit(self)
+        s = switch_statement.default_case_clause.body_link
+        assert s is not None
+        s.accept_visit(self)
 
         del self._condition_stack[-1]
 
@@ -1160,6 +1201,11 @@ class _P4Analyzer(Visitor):
         for statement in switch_statement.default_case_clause.body:
             statement.accept_visit(self)
 
+    def visit_goto_statement(self, goto_statement: GotoStatement) -> None:
+        s = goto_statement.return_statement
+        assert s is not None
+        self.visit_return_statement(s)
+
     def visit_return_statement(self, return_statement: ReturnStatement) -> None:
         if (
             return_statement.source_location.file_offset
@@ -1182,7 +1228,7 @@ class DuplicateBundleNameError(Error):
     def __init__(self, bundle_declaration: BundleDeclaration) -> None:
         super().__init__(
             bundle_declaration.source_location,
-            f"duplicate bundle name: {repr(bundle_declaration.name)}",
+            f"duplicate bundle name {repr(bundle_declaration.name)}",
         )
 
 
@@ -1190,7 +1236,7 @@ class DuplicateUnitNameError(Error):
     def __init__(self, unit_declaration: UnitDeclaration) -> None:
         super().__init__(
             unit_declaration.source_location,
-            f"duplicate unit name: {repr(unit_declaration.name)}",
+            f"duplicate unit name {repr(unit_declaration.name)}",
         )
 
 
@@ -1198,7 +1244,7 @@ class DuplicateCaseValueError(Error):
     def __init__(self, case_value: CaseValue) -> None:
         super().__init__(
             case_value.source_location,
-            f"duplicate case value: {repr(case_value.value)}",
+            f"duplicate case value {repr(case_value.value)}",
         )
 
 
@@ -1235,3 +1281,19 @@ class TooManyTestOpValuesError(Error):
 class UnreachableReturnStatementError(Error):
     def __init__(self, source_location: SourceLocation) -> None:
         super().__init__(source_location, "unreachable return statement")
+
+
+class DuplicateLabelNameError(Error):
+    def __init__(self, label: Label) -> None:
+        super().__init__(
+            label.source_location,
+            f"duplicate label name {repr(label.name)}",
+        )
+
+
+class UndefinedLabelError(Error):
+    def __init__(self, goto_statement: GotoStatement) -> None:
+        super().__init__(
+            goto_statement.source_location,
+            f"label {repr(goto_statement.label_name)} not defined",
+        )

@@ -37,16 +37,35 @@ class UnitDeclaration:
     program: list["Statement"]
 
 
-type Statement = "ReturnStatement | IfStatement | SwitchStatement"
+type Statement = "ReturnStatement | GotoStatement | IfStatement | SwitchStatement"
+
+
+@dataclass
+class Label:
+    source_location: SourceLocation
+    name: str
 
 
 @dataclass
 class ReturnStatement:
     source_location: SourceLocation
     transform_list: list["Transform"]
+    label: Label | None
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_return_statement(self)
+
+
+@dataclass
+class GotoStatement:
+    source_location: SourceLocation
+    label_name: str
+
+    # for analysis
+    return_statement: ReturnStatement | None = None
+
+    def accept_visit(self, visitor: "Visitor") -> None:
+        visitor.visit_goto_statement(self)
 
 
 @dataclass
@@ -174,6 +193,9 @@ class OpType(enum.IntEnum):
 
 class Visitor:
     def visit_return_statement(self, return_statement: ReturnStatement) -> None:
+        raise NotImplementedError()
+
+    def visit_goto_statement(self, goto_statement: GotoStatement) -> None:
         raise NotImplementedError()
 
     def visit_if_statement(self, if_statement: IfStatement) -> None:
@@ -462,10 +484,13 @@ class Parser:
     def _get_statements(self) -> list[Statement]:
         statements: list[Statement] = []
         while True:
+            label = self._maybe_get_label()
             t = self._peek_token(1)
             match t.type:
                 case TokenType.RETURN_KEYWORD:
-                    statement = self._get_return_statement()
+                    statement = self._get_return_statement(label)
+                case TokenType.GOTO_KEYWORD:
+                    statement = self._get_goto_statement()
                 case TokenType.SWITCH_KEYWORD:
                     statement = self._get_switch_statement()
                 case TokenType.IF_KEYWORD:
@@ -474,12 +499,34 @@ class Parser:
                     return statements
             statements.append(statement)
 
-    def _get_return_statement(self) -> ReturnStatement:
+    def _maybe_get_label(self) -> Label | None:
+        t1 = self._peek_token(1)
+        t2 = self._peek_token(2)
+        if (t1.type, t2.type) != (TokenType.IDENTIFIER, TokenType.COLON):
+            return None
+        self._discard_tokens(2)
+        source_location, label_name = t1.source_location, t1.data
+        label = Label(source_location, label_name)
+        if self._peek_token(1).type != TokenType.RETURN_KEYWORD:
+            raise InvalidLabelPositionError(label)
+        return label
+
+    def _get_return_statement(self, label: Label | None) -> ReturnStatement:
         source_location = self._get_expected_token(
             TokenType.RETURN_KEYWORD
         ).source_location
         transform_list = self._get_transform_list()
-        return ReturnStatement(source_location, transform_list)
+        return ReturnStatement(source_location, transform_list, label)
+
+    def _get_goto_statement(self) -> GotoStatement:
+        source_location = self._get_expected_token(
+            TokenType.GOTO_KEYWORD
+        ).source_location
+        label_name = self._get_identifier()
+        return GotoStatement(
+            source_location,
+            label_name,
+        )
 
     def _get_switch_statement(self) -> SwitchStatement:
         source_location = self._get_expected_token(
@@ -954,4 +1001,11 @@ class InvalidStringTemplateError(Error):
         super().__init__(
             source_location,
             f"invalid transform literal {repr(string_template)}, {description}",
+        )
+
+
+class InvalidLabelPositionError(Error):
+    def __init__(self, label: Label) -> None:
+        super().__init__(
+            label.source_location, f"Label must be followed by a return statement"
         )

@@ -3,10 +3,15 @@ import glob
 import os
 import sys
 
+from termcolor import colored
+
 from .analyzer import Analyzer, Component
+from .analyzer import Error as AnalyzerError
 from .excel_generator import ExcelGenerator
 from .match_transform_generator import MatchTransformGenerator
+from .parser import Error as ParserError
 from .parser import Parser
+from .scanner import Error as ScannerError
 from .scanner import Scanner
 from .test_op_infos import load_custom_test_op_infos_from_file
 
@@ -55,6 +60,27 @@ def main() -> None:
     if len(mtg_file_names) == 0:
         raise SystemExit(f"no mtg file found in {repr(mtg_dir_name)}")
 
+    try:
+        _compile_mtg_files(
+            mtg_dir_name=mtg_dir_name,
+            mtg_file_names=mtg_file_names,
+            excel_file_name=excel_file_name,
+            match_transform_dir_name=match_transform_dir_name,
+            debug_log_file_name=debug_log_file_name,
+        )
+    except (ScannerError, AnalyzerError, ParserError) as e:
+        sys.stderr.write(f"{colored("ERROR", "red", attrs=["bold"])} {e}\n")
+        sys.exit(1)
+
+
+def _compile_mtg_files(
+    *,
+    mtg_dir_name: str,
+    mtg_file_names: list[str],
+    excel_file_name: str,
+    match_transform_dir_name: str,
+    debug_log_file_name,
+):
     custom_test_op_infos_file_name = os.path.join(
         mtg_dir_name, ".custom_test_op_infos.json"
     )

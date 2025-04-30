@@ -33,6 +33,7 @@ class TokenType(enum.IntEnum):
     BUNDLE_KEYWORD = enum.auto()  # bundle
     UNIT_KEYWORD = enum.auto()  # unit
     RETURN_KEYWORD = enum.auto()  # return
+    GOTO_KEYWORD = enum.auto()  # goto
     TRANSFORM_KEYWORD = enum.auto()  # transform
     AS_KEYWORD = enum.auto()  # as
     SWITCH_KEYWORD = enum.auto()  # switch
@@ -73,6 +74,7 @@ _token_type_2_str: dict[TokenType, str] = {
     TokenType.BUNDLE_KEYWORD: "`bundle`",
     TokenType.UNIT_KEYWORD: "`unit`",
     TokenType.RETURN_KEYWORD: "`return`",
+    TokenType.GOTO_KEYWORD: "`goto`",
     TokenType.TRANSFORM_KEYWORD: "`transform`",
     TokenType.AS_KEYWORD: "`as`",
     TokenType.SWITCH_KEYWORD: '"switch"',
@@ -319,6 +321,7 @@ _keyword_2_token_type = {
     "bundle": TokenType.BUNDLE_KEYWORD,
     "unit": TokenType.UNIT_KEYWORD,
     "return": TokenType.RETURN_KEYWORD,
+    "goto": TokenType.GOTO_KEYWORD,
     "transform": TokenType.TRANSFORM_KEYWORD,
     "as": TokenType.AS_KEYWORD,
     "switch": TokenType.SWITCH_KEYWORD,
