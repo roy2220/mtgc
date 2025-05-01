@@ -207,5 +207,4 @@ class MatchTransformGenerator:
         return match
 
 
-_dummy_and_expr = AndExpr([], -1)
-_dummy_return_point = ReturnPoint(OrExpr([]), [])
+_dummy_and_expr = AndExpr(test_exprs=[], index=-1)

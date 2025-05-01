@@ -4,7 +4,7 @@ import string
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Token:
     type: "TokenType"
     data: str
@@ -92,7 +92,7 @@ _token_type_2_str: dict[TokenType, str] = {
 assert len(_token_type_2_str) == TokenType.IDENTIFIER - TokenType.NONE + 1
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SourceLocation:
     file_name: str
     file_offset: int
@@ -124,79 +124,103 @@ class Scanner:
         c = self._get_char()
         match c:
             case "(":
-                return Token(TokenType.OPEN_PAREN, c, source_location)
+                return Token(
+                    type=TokenType.OPEN_PAREN, data=c, source_location=source_location
+                )
 
             case ")":
-                return Token(TokenType.CLOSE_PAREN, c, source_location)
+                return Token(
+                    type=TokenType.CLOSE_PAREN, data=c, source_location=source_location
+                )
 
             case "{":
-                return Token(TokenType.OPEN_BRACE, c, source_location)
+                return Token(
+                    type=TokenType.OPEN_BRACE, data=c, source_location=source_location
+                )
 
             case "}":
-                return Token(TokenType.CLOSE_BRACE, c, source_location)
+                return Token(
+                    type=TokenType.CLOSE_BRACE, data=c, source_location=source_location
+                )
 
             case "+":
-                return Token(TokenType.PLUS, c, source_location)
+                return Token(
+                    type=TokenType.PLUS, data=c, source_location=source_location
+                )
 
             case ",":
-                return Token(TokenType.COMMA, c, source_location)
+                return Token(
+                    type=TokenType.COMMA, data=c, source_location=source_location
+                )
 
             case ":":
-                return Token(TokenType.COLON, c, source_location)
+                return Token(
+                    type=TokenType.COLON, data=c, source_location=source_location
+                )
 
             case "!":
-                return Token(TokenType.LOGICAL_NOT, c, source_location)
+                return Token(
+                    type=TokenType.LOGICAL_NOT, data=c, source_location=source_location
+                )
 
             case '"':
                 return Token(
-                    TokenType.STRING_LITERAL,
-                    self._get_single_line_string_literal([c]),
-                    source_location,
+                    type=TokenType.STRING_LITERAL,
+                    data=self._get_single_line_string_literal([c]),
+                    source_location=source_location,
                 )
 
             case "`":
                 return Token(
-                    TokenType.STRING_LITERAL,
-                    self._get_multi_line_string_literal([c]),
-                    source_location,
+                    type=TokenType.STRING_LITERAL,
+                    data=self._get_multi_line_string_literal([c]),
+                    source_location=source_location,
                 )
 
             case _:
                 if c in string.whitespace:
                     return Token(
-                        TokenType.WHITESPACE,
-                        self._get_whitespace([c]),
-                        source_location,
+                        type=TokenType.WHITESPACE,
+                        data=self._get_whitespace([c]),
+                        source_location=source_location,
                     )
 
                 elif c == "&":
                     c2 = self._peek_char(1)
                     if c2 == "&":
                         self._discard_chars(1)
-                        return Token(TokenType.LOGICAL_AND, "&&", source_location)
+                        return Token(
+                            type=TokenType.LOGICAL_AND,
+                            data="&&",
+                            source_location=source_location,
+                        )
 
                 elif c == "|":
                     c2 = self._peek_char(1)
                     if c2 == "|":
                         self._discard_chars(1)
-                        return Token(TokenType.LOGICAL_OR, "||", source_location)
+                        return Token(
+                            type=TokenType.LOGICAL_OR,
+                            data="||",
+                            source_location=source_location,
+                        )
 
                 elif c == "/":
                     c2 = self._peek_char(1)
                     if c2 == "/":
                         return Token(
-                            TokenType.COMMENT,
-                            self._get_comment([c, c2]),
-                            source_location,
+                            type=TokenType.COMMENT,
+                            data=self._get_comment([c, c2]),
+                            source_location=source_location,
                         )
 
                 elif c in _first_identifier_letters:
                     token_data, token_type = self._get_identifier_or_keyword([c])
                     if token_type is not TokenType.NONE:
                         return Token(
-                            token_type,
-                            token_data,
-                            source_location,
+                            type=token_type,
+                            data=token_data,
+                            source_location=source_location,
                         )
 
         raise UnexpectedCharError(source_location, c)

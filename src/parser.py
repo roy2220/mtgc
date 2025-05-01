@@ -13,7 +13,7 @@ from gjson.exceptions import GJSONParseError
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ComponentDeclaration:
     source_location: SourceLocation
     name: str
@@ -21,14 +21,14 @@ class ComponentDeclaration:
     bundles: list["BundleDeclaration"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BundleDeclaration:
     source_location: SourceLocation
     name: str
     units: list["UnitDeclaration"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class UnitDeclaration:
     source_location: SourceLocation
     name: str
@@ -40,13 +40,13 @@ class UnitDeclaration:
 type Statement = "ReturnStatement | GotoStatement | IfStatement | SwitchStatement"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Label:
     source_location: SourceLocation
     name: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ReturnStatement:
     source_location: SourceLocation
     transform_list: list["Transform"]
@@ -56,7 +56,7 @@ class ReturnStatement:
         visitor.visit_return_statement(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class GotoStatement:
     source_location: SourceLocation
     label_name: str
@@ -68,13 +68,14 @@ class GotoStatement:
         visitor.visit_goto_statement(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Transform:
+    source_location: SourceLocation
     spec: dict
     annotation: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IfStatement:
     source_location: SourceLocation
     condition: "Condiction"
@@ -89,7 +90,7 @@ class IfStatement:
         visitor.visit_if_statement(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ElseIfClause:
     source_location: SourceLocation
     condition: "Condiction"
@@ -99,7 +100,7 @@ class ElseIfClause:
     body_link: Statement | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ElseClause:
     # if source_location is None, no ElseClause present
     source_location: SourceLocation | None
@@ -109,7 +110,7 @@ class ElseClause:
     body_link: Statement | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SwitchStatement:
     source_location: SourceLocation
     key: str
@@ -121,7 +122,7 @@ class SwitchStatement:
         visitor.visit_switch_statement(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CaseClause:
     source_location: SourceLocation
     case_values: list["CaseValue"]
@@ -131,14 +132,14 @@ class CaseClause:
     body_link: Statement | None = None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CaseValue:
     source_location: SourceLocation
     value: str
     fact: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DefaultCaseClause:
     # if source_location is None, no DefaultCaseClause present
     source_location: SourceLocation | None
@@ -151,7 +152,7 @@ class DefaultCaseClause:
 type Condiction = "ConstantCondiction | TestCondiction | CompositeCondiction"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ConstantCondiction:
     source_location: SourceLocation
     constant: bool
@@ -160,7 +161,7 @@ class ConstantCondiction:
         visitor.visit_constant_condition(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TestCondiction:
     source_location: SourceLocation
     key: str
@@ -174,7 +175,7 @@ class TestCondiction:
         visitor.visit_test_condition(self)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CompositeCondiction:
     source_location: SourceLocation
     logical_op_type: "OpType"
@@ -285,10 +286,10 @@ class Parser:
 
         bundle_declarations = self._get_bundle_declarations()
         return ComponentDeclaration(
-            source_location,
-            component_name,
-            component_alias,
-            bundle_declarations,
+            source_location=source_location,
+            name=component_name,
+            alias=component_alias,
+            bundles=bundle_declarations,
         )
 
     def _import_files(self):
@@ -335,7 +336,9 @@ class Parser:
         self._get_expected_token(TokenType.OPEN_BRACE)
         unit_declarations = self._get_unit_declarations()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return BundleDeclaration(source_location, bundle_name, unit_declarations)
+        return BundleDeclaration(
+            source_location=source_location, name=bundle_name, units=unit_declarations
+        )
 
     def _get_unit_declarations(self) -> list[UnitDeclaration]:
         unit_declarations: list[UnitDeclaration] = []
@@ -358,7 +361,11 @@ class Parser:
         program = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
         return UnitDeclaration(
-            source_location, unit_name, unit_alias, default_transform_list, program
+            source_location=source_location,
+            name=unit_name,
+            alias=unit_alias,
+            default_transform_list=default_transform_list,
+            program=program,
         )
 
     def _maybe_get_default_transform_list(self) -> list[Transform]:
@@ -385,7 +392,9 @@ class Parser:
         return transform_list
 
     def _get_transform(self) -> Transform:
-        self._get_expected_token(TokenType.TRANSFORM_KEYWORD)
+        source_location = self._get_expected_token(
+            TokenType.TRANSFORM_KEYWORD
+        ).source_location
         self._get_expected_token(TokenType.OPEN_PAREN)
         transform_spec = self._get_transform_spec()
         self._get_expected_token(TokenType.CLOSE_PAREN)
@@ -393,7 +402,11 @@ class Parser:
         transform_annotation = _render_string_template(
             *self._get_string_with_source_location(), transform_spec
         )
-        return Transform(transform_spec, transform_annotation)
+        return Transform(
+            source_location=source_location,
+            spec=transform_spec,
+            annotation=transform_annotation,
+        )
 
     def _get_transform_spec(self) -> dict:
         transform_literal, source_location = self._get_string_with_source_location()
@@ -506,7 +519,7 @@ class Parser:
             return None
         self._discard_tokens(2)
         source_location, label_name = t1.source_location, t1.data
-        label = Label(source_location, label_name)
+        label = Label(source_location=source_location, name=label_name)
         if self._peek_token(1).type != TokenType.RETURN_KEYWORD:
             raise InvalidLabelPositionError(label)
         return label
@@ -516,7 +529,9 @@ class Parser:
             TokenType.RETURN_KEYWORD
         ).source_location
         transform_list = self._get_transform_list()
-        return ReturnStatement(source_location, transform_list, label)
+        return ReturnStatement(
+            source_location=source_location, transform_list=transform_list, label=label
+        )
 
     def _get_goto_statement(self) -> GotoStatement:
         source_location = self._get_expected_token(
@@ -524,8 +539,8 @@ class Parser:
         ).source_location
         label_name = self._get_identifier()
         return GotoStatement(
-            source_location,
-            label_name,
+            source_location=source_location,
+            label_name=label_name,
         )
 
     def _get_switch_statement(self) -> SwitchStatement:
@@ -548,7 +563,11 @@ class Parser:
         self._get_expected_token(TokenType.CLOSE_BRACE)
 
         return SwitchStatement(
-            source_location, key, key_index, case_clauses, default_case_clause
+            source_location=source_location,
+            key=key,
+            key_index=key_index,
+            case_clauses=case_clauses,
+            default_case_clause=default_case_clause,
         )
 
     def _get_case_clause(self, key: str) -> CaseClause:
@@ -569,7 +588,9 @@ class Parser:
         self._get_expected_token(TokenType.COLON)
 
         body = self._get_statements()
-        return CaseClause(source_location, case_values, body)
+        return CaseClause(
+            source_location=source_location, case_values=case_values, body=body
+        )
 
     def _get_case_value(self, key) -> CaseValue:
         value, source_location = self._get_string_with_source_location()
@@ -578,18 +599,18 @@ class Parser:
             *self._get_string_with_source_location(),
             {"key": key, "op": "eq", "values": [value]},
         )
-        return CaseValue(source_location, value, fact)
+        return CaseValue(source_location=source_location, value=value, fact=fact)
 
     def _maybe_get_default_case_clause(self) -> DefaultCaseClause:
         t = self._peek_token(1)
         if t.type != TokenType.DEFAULT_KEYWORD:
-            return DefaultCaseClause(None, [])
+            return DefaultCaseClause(source_location=None, body=[])
 
         source_location = t.source_location
         self._discard_tokens(1)
         self._get_expected_token(TokenType.COLON)
         body = self._get_statements()
-        return DefaultCaseClause(source_location, body)
+        return DefaultCaseClause(source_location=source_location, body=body)
 
     def _get_if_statement(self) -> IfStatement:
         source_location = self._get_expected_token(TokenType.IF_KEYWORD).source_location
@@ -612,7 +633,11 @@ class Parser:
         else_clause = self._maybe_get_else_clause()
 
         return IfStatement(
-            source_location, condition, body, else_if_clauses, else_clause
+            source_location=source_location,
+            condition=condition,
+            body=body,
+            else_if_clauses=else_if_clauses,
+            else_clause=else_clause,
         )
 
     def _get_else_if_clause(self) -> ElseIfClause:
@@ -624,19 +649,21 @@ class Parser:
         self._get_expected_token(TokenType.OPEN_BRACE)
         body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return ElseIfClause(source_location, condition, body)
+        return ElseIfClause(
+            source_location=source_location, condition=condition, body=body
+        )
 
     def _maybe_get_else_clause(self) -> ElseClause:
         t = self._peek_token(1)
         if t.type != TokenType.ELSE_KEYWORD:
-            return ElseClause(None, [])
+            return ElseClause(source_location=None, body=[])
 
         source_location = t.source_location
         self._discard_tokens(1)
         self._get_expected_token(TokenType.OPEN_BRACE)
         body = self._get_statements()
         self._get_expected_token(TokenType.CLOSE_BRACE)
-        return ElseClause(source_location, body)
+        return ElseClause(source_location=source_location, body=body)
 
     def _get_condition(self, min_binary_op_precedence: int | None) -> Condiction:
         t = self._peek_token(1)
@@ -647,7 +674,10 @@ class Parser:
         elif t.type == TokenType.LOGICAL_NOT:
             self._discard_tokens(1)
             condition = CompositeCondiction(
-                t.source_location, OpType.LOGICAL_NOT, self._get_condition(None), None
+                source_location=t.source_location,
+                logical_op_type=OpType.LOGICAL_NOT,
+                condition_1=self._get_condition(None),
+                condition_2=None,
             )
         else:
             condition = self._get_basic_condition()
@@ -665,10 +695,10 @@ class Parser:
 
             self._discard_tokens(1)
             condition = CompositeCondiction(
-                condition.source_location,
-                binary_op_type,
-                condition,
-                self._get_condition(binary_op_precedence + 1),
+                source_location=condition.source_location,
+                logical_op_type=binary_op_type,
+                condition_1=condition,
+                condition_2=self._get_condition(binary_op_precedence + 1),
             )
 
         return condition
@@ -679,7 +709,8 @@ class Parser:
             case TokenType.TRUE_KEYWORD | TokenType.FALSE_KEYWORD:
                 self._discard_tokens(1)
                 return ConstantCondiction(
-                    t.source_location, t.type == TokenType.TRUE_KEYWORD
+                    source_location=t.source_location,
+                    constant=t.type == TokenType.TRUE_KEYWORD,
                 )
             case TokenType.TEST_KEYWORD:
                 return self._get_test_condition()
@@ -724,7 +755,13 @@ class Parser:
         )
 
         return TestCondiction(
-            source_location, key, key_index, op, values, underlying_values, fact
+            source_location=source_location,
+            key=key,
+            key_index=key_index,
+            op=op,
+            values=values,
+            underlying_values=underlying_values,
+            fact=fact,
         )
 
     def _get_identifier(self) -> str:
@@ -766,7 +803,13 @@ class Parser:
         return key, key_index
 
 
-_dummy_token = Token(TokenType.NONE, "", SourceLocation("", 0, 0, 0))
+_dummy_token = Token(
+    type=TokenType.NONE,
+    data="",
+    source_location=SourceLocation(
+        file_name="", file_offset=-1, line_number=0, column_number=0
+    ),
+)
 
 
 _token_type_2_binary_op_type: dict[TokenType, OpType] = {

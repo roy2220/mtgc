@@ -12,7 +12,7 @@ from .analyzer import AndExpr, Bundle, Component, ReturnPoint, TestExpr, Transfo
 from .test_op_infos import replace_with_real_op
 
 
-@dataclass
+@dataclass(kw_only=True)
 class _SymbolReference:
     kind: "_SymbolReferenceKind"
     symbol_key: str
@@ -710,14 +710,14 @@ class ExcelGenerator:
     ) -> None:
         self._symbol_references.append(
             _SymbolReference(
-                symbol_reference_kind,
-                symbol_key,
-                self._worksheet_name,
-                (self._row_index, column_index),
-                self._business_unit_name,
-                self._business_unit_loc,
-                self._business_scenario_num,
-                self._business_scenario_loc,
+                kind=symbol_reference_kind,
+                symbol_key=symbol_key,
+                worksheet_name=self._worksheet_name,
+                loc=(self._row_index, column_index),
+                business_unit_name=self._business_unit_name,
+                business_unit_loc=self._business_unit_loc,
+                business_scenario_num=self._business_scenario_num,
+                business_scenario_loc=self._business_scenario_loc,
             )
         )
 
@@ -728,14 +728,14 @@ class ExcelGenerator:
             for symbol_key in test_expr.values:
                 self._symbol_references.append(
                     _SymbolReference(
-                        _SymbolReferenceKind.WHEN_EXTRA,
-                        symbol_key,
-                        self._worksheet_name,
-                        (self._row_index, column_index),
-                        self._business_unit_name,
-                        self._business_unit_loc,
-                        self._business_scenario_num,
-                        self._business_scenario_loc,
+                        kind=_SymbolReferenceKind.WHEN_EXTRA,
+                        symbol_key=symbol_key,
+                        worksheet_name=self._worksheet_name,
+                        loc=(self._row_index, column_index),
+                        business_unit_name=self._business_unit_name,
+                        business_unit_loc=self._business_unit_loc,
+                        business_scenario_num=self._business_scenario_num,
+                        business_scenario_loc=self._business_scenario_loc,
                     )
                 )
 
@@ -752,14 +752,14 @@ class ExcelGenerator:
             for symbol_key in from1 + expr_keys:
                 self._symbol_references.append(
                     _SymbolReference(
-                        _SymbolReferenceKind.THEN_EXTRA,
-                        symbol_key,
-                        self._worksheet_name,
-                        (self._row_index, column_index),
-                        self._business_unit_name,
-                        self._business_unit_loc,
-                        self._business_scenario_num,
-                        self._business_scenario_loc,
+                        kind=_SymbolReferenceKind.THEN_EXTRA,
+                        symbol_key=symbol_key,
+                        worksheet_name=self._worksheet_name,
+                        loc=(self._row_index, column_index),
+                        business_unit_name=self._business_unit_name,
+                        business_unit_loc=self._business_unit_loc,
+                        business_scenario_num=self._business_scenario_num,
+                        business_scenario_loc=self._business_scenario_loc,
                     )
                 )
 

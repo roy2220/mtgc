@@ -79,7 +79,7 @@ def _compile_mtg_files(
     mtg_file_names: list[str],
     excel_file_name: str,
     match_transform_dir_name: str,
-    debug_log_file_name,
+    debug_log_file_name: str | None,
 ):
     custom_test_op_infos_file_name = os.path.join(
         mtg_dir_name, ".custom_test_op_infos.json"

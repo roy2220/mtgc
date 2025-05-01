@@ -26,51 +26,57 @@ from .scanner import SourceLocation
 from .test_op_infos import TestOpInfo, test_op_infos
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Component:
+    source_location: SourceLocation
     name: str
     alias: str
     bundles: list["Bundle"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Bundle:
+    source_location: SourceLocation
     name: str
     units: list["Unit"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Unit:
+    source_location: SourceLocation
     name: str
     alias: str
     return_points: list["ReturnPoint"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ReturnPoint:
+    source_location: SourceLocation
     or_expr: "OrExpr"
     transform_list: list["Transform"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Transform:
+    source_location: SourceLocation
     spec: dict
     annotation: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class OrExpr:
     and_exprs: list["AndExpr"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class AndExpr:
     test_exprs: list["TestExpr"]
     index: int
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TestExpr:
+    source_location: SourceLocation
     is_negative: bool
     key: str
     key_index: int
@@ -100,9 +106,10 @@ class Analyzer:
 
     def get_component(self) -> Component:
         return Component(
-            self._component_declaration.name,
-            self._component_declaration.alias,
-            self._get_bundles(),
+            source_location=self._component_declaration.source_location,
+            name=self._component_declaration.name,
+            alias=self._component_declaration.alias,
+            bundles=self._get_bundles(),
         )
 
     def _get_bundles(self) -> list[Bundle]:
@@ -116,8 +123,9 @@ class Analyzer:
 
             bundles.append(
                 Bundle(
-                    bundle_declaration.name,
-                    self._get_units(bundle_declaration.units),
+                    source_location=bundle_declaration.source_location,
+                    name=bundle_declaration.name,
+                    units=self._get_units(bundle_declaration.units),
                 )
             )
 
@@ -134,9 +142,10 @@ class Analyzer:
 
             units.append(
                 Unit(
-                    unit_declaration.name,
-                    unit_declaration.alias,
-                    self._get_return_points(unit_declaration),
+                    source_location=unit_declaration.source_location,
+                    name=unit_declaration.name,
+                    alias=unit_declaration.alias,
+                    return_points=self._get_return_points(unit_declaration),
                 )
             )
 
@@ -265,7 +274,7 @@ class _P1Analyzer(Visitor):
         self._visit_block(switch_statement.default_case_clause.body)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class _P2ReturnPoints:
     default_transform_list: list[RawTransform]
     default_return_point_file_offsets: set[int]
@@ -273,15 +282,17 @@ class _P2ReturnPoints:
     file_offsets_2_test_args: dict[tuple[int, int], "_TestArgs"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class _P2ReturnPoint:
+    source_location: SourceLocation
     file_offset: int
     transform_list: list[RawTransform]
     conditions: list[boolalg.Boolean]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class _TestArgs:
+    source_location: SourceLocation
     key: str
     key_index: int
     op: str
@@ -309,7 +320,12 @@ class _P2Analyzer(Visitor):
         self._program_link = program_link
         self._symbols: dict[str, sympy.Symbol] = {}
         self._condition_stack: list[boolalg.Boolean] = []
-        self._return_points = _P2ReturnPoints(default_transform_list, set(), {}, {})
+        self._return_points = _P2ReturnPoints(
+            default_transform_list=default_transform_list,
+            default_return_point_file_offsets=set(),
+            file_offset_2_item={},
+            file_offsets_2_test_args={},
+        )
 
     def get_return_points(self) -> _P2ReturnPoints:
         if self._program_link is not None:
@@ -318,16 +334,14 @@ class _P2Analyzer(Visitor):
         return self._return_points
 
     def _get_or_new_symbol(
-        self, file_offset_1: int, file_offset_2: int, test_args: _TestArgs
+        self, file_offsets: tuple[int, int], test_args: _TestArgs
     ) -> sympy.Symbol:
-        symbol_name = f"{file_offset_1},{file_offset_2}"
+        symbol_name = f"{file_offsets[0]},{file_offsets[1]}"
         symbol = self._symbols.get(symbol_name)
         if symbol is None:
             symbol = sympy.Symbol(symbol_name)
             self._symbols[symbol_name] = symbol
-            self._return_points.file_offsets_2_test_args[
-                file_offset_1, file_offset_2
-            ] = test_args
+            self._return_points.file_offsets_2_test_args[file_offsets] = test_args
         return symbol
 
     def visit_return_statement(self, return_statement: ReturnStatement) -> None:
@@ -348,9 +362,10 @@ class _P2Analyzer(Visitor):
         return_point = self._return_points.file_offset_2_item.get(file_offset)
         if return_point is None:
             return_point = _P2ReturnPoint(
-                file_offset,
-                transform_list,
-                [],
+                source_location=return_statement.source_location,
+                file_offset=file_offset,
+                transform_list=transform_list,
+                conditions=[],
             )
             self._return_points.file_offset_2_item[file_offset] = return_point
         return_point.conditions.append(condition)
@@ -405,29 +420,34 @@ class _P2Analyzer(Visitor):
 
                 test_op_info = test_op_infos["in"]
                 test_args = _TestArgs(
-                    switch_statement.key,
-                    switch_statement.key_index,
-                    test_op_info.op,
-                    [case_value.value],
-                    [case_value.value],
-                    case_value.fact,
-                    test_op_info.reverse_op,
-                    test_op_info.number_of_subkeys,
-                    test_op_info.equals_real_values,
-                    test_op_info.unequals_real_values,
+                    source_location=case_value.source_location,
+                    key=switch_statement.key,
+                    key_index=switch_statement.key_index,
+                    op=test_op_info.op,
+                    values=[case_value.value],
+                    underlying_values=[case_value.value],
+                    fact=case_value.fact,
+                    reverse_op=test_op_info.reverse_op,
+                    number_of_subkeys=test_op_info.number_of_subkeys,
+                    equals_real_values=test_op_info.equals_real_values,
+                    unequals_real_values=test_op_info.unequals_real_values,
                 )
                 if condition is None:
                     condition = self._get_or_new_symbol(
-                        switch_statement.source_location.file_offset,
-                        case_value.source_location.file_offset,
+                        (
+                            switch_statement.source_location.file_offset,
+                            case_value.source_location.file_offset,
+                        ),
                         test_args,
                     )
                 else:
                     condition = boolalg.Or(
                         condition,
                         self._get_or_new_symbol(
-                            switch_statement.source_location.file_offset,
-                            case_value.source_location.file_offset,
+                            (
+                                switch_statement.source_location.file_offset,
+                                case_value.source_location.file_offset,
+                            ),
                             test_args,
                         ),
                     )
@@ -480,21 +500,21 @@ class _P2Analyzer(Visitor):
             test_op_info = test_op_infos[test_op_info.multiple_op]
 
         test_args = _TestArgs(
-            test_condition.key,
-            test_condition.key_index,
-            test_op_info.op,
-            test_condition.values,
-            test_condition.underlying_values,
-            test_condition.fact,
-            test_op_info.reverse_op,
-            test_op_info.number_of_subkeys,
-            test_op_info.equals_real_values,
-            test_op_info.unequals_real_values,
+            source_location=test_condition.source_location,
+            key=test_condition.key,
+            key_index=test_condition.key_index,
+            op=test_op_info.op,
+            values=test_condition.values,
+            underlying_values=test_condition.underlying_values,
+            fact=test_condition.fact,
+            reverse_op=test_op_info.reverse_op,
+            number_of_subkeys=test_op_info.number_of_subkeys,
+            equals_real_values=test_op_info.equals_real_values,
+            unequals_real_values=test_op_info.unequals_real_values,
         )
         self._condition_stack.append(
             self._get_or_new_symbol(
-                test_condition.source_location.file_offset,
-                _dummy_file_offset,
+                (test_condition.source_location.file_offset, _dummy_file_offset),
                 test_args,
             )
         )
@@ -535,94 +555,64 @@ class _P2Analyzer(Visitor):
                 assert False
 
 
+@dataclass(kw_only=True)
 class _P3ReturnPoint:
-    __slots__ = (
-        "or_expr",
-        "transform_list",
-        "file_offset",
-    )
+    source_location: SourceLocation
+    or_expr: "_P3OrExpr"
+    transform_list: list["_P3Transform"]
 
-    def __init__(self) -> None:
-        self.or_expr = _P3OrExpr()
-        self.transform_list: list[_P3Transform] = []
-
-        self.file_offset = 0
+    file_offset: int
 
     def to_return_point(self) -> ReturnPoint:
         return ReturnPoint(
-            self.or_expr.to_or_expr(), [x.to_transform() for x in self.transform_list]
+            source_location=self.source_location,
+            or_expr=self.or_expr.to_or_expr(),
+            transform_list=[x.to_transform() for x in self.transform_list],
         )
 
 
+@dataclass(kw_only=True)
 class _P3OrExpr:
-    __slots__ = ("and_exprs",)
-
-    def __init__(self) -> None:
-        self.and_exprs: list[_P3AndExpr] = []
+    and_exprs: list["_P3AndExpr"]
 
     def to_or_expr(self) -> OrExpr:
-        return OrExpr([x.to_and_expr() for x in self.and_exprs])
+        return OrExpr(and_exprs=[x.to_and_expr() for x in self.and_exprs])
 
 
+@dataclass(kw_only=True)
 class _P3AndExpr:
-    __slots__ = (
-        "test_exprs",
-        "index",
-        "test_ids",
-        "rank",
-    )
+    test_exprs: list["_P3TestExpr"]
+    index: int
 
-    def __init__(self) -> None:
-        self.test_exprs: list[_P3TestExpr] = []
-        self.index = -1
-
-        self.test_ids: set[int] = set()
-        self.rank: list[int] = []
+    test_ids: set[int]
+    rank: list[int]
 
     def to_and_expr(self) -> AndExpr:
-        return AndExpr([x.to_test_expr() for x in self.test_exprs], self.index)
+        return AndExpr(
+            test_exprs=[x.to_test_expr() for x in self.test_exprs], index=self.index
+        )
 
 
+@dataclass(kw_only=True)
 class _P3TestExpr:
-    __slots__ = (
-        "is_negative",
-        "key",
-        "key_index",
-        "op",
-        "values",
-        "underlying_values",
-        "fact",
-        "reverse_op",
-        "is_dismissed",
-        "is_merged",
-        "merged_children",
-        "file_offset_1",
-        "file_offset_2",
-        "test_id",
-        "number_of_subkeys",
-        "equals_real_values",
-        "unequals_real_values",
-    )
+    source_location: SourceLocation
+    is_negative: bool
+    key: str
+    key_index: int
+    op: str
+    values: list[str]
+    underlying_values: list[str]
+    fact: str
+    reverse_op: str
+    is_merged: bool
+    is_dismissed: bool
+    merged_children: list["_P3TestExpr"]
 
-    def __init__(self) -> None:
-        self.is_negative = False
-        self.key = ""
-        self.key_index = 0
-        self.op = ""
-        self.values: list[str] = []
-        self.underlying_values: list[str] = []
-        self.fact = ""
-        self.reverse_op = ""
-        self.is_merged = False
-        self.is_dismissed = False
-        self.merged_children: list[_P3TestExpr] = []
-
-        self.file_offset_1 = _dummy_file_offset
-        self.file_offset_2 = _dummy_file_offset
-        self.test_id = 0
-        self.number_of_subkeys = 0
-        self.equals_real_values = False
-        self.unequals_real_values = False
+    file_offsets: tuple[int, int]
+    test_id: int
+    number_of_subkeys: int
+    equals_real_values: bool
+    unequals_real_values: bool
 
     def virtual_key(self) -> Iterator[str]:
         yield self.key
@@ -642,32 +632,33 @@ class _P3TestExpr:
 
     def to_test_expr(self) -> TestExpr:
         return TestExpr(
-            self.is_negative,
-            self.key,
-            self.key_index,
-            self.op,
-            self.values,
-            self.underlying_values,
-            self.fact,
-            self.reverse_op,
-            self.is_dismissed,
-            self.is_merged,
-            [x.to_test_expr() for x in self.merged_children],
+            source_location=self.source_location,
+            is_negative=self.is_negative,
+            key=self.key,
+            key_index=self.key_index,
+            op=self.op,
+            values=self.values,
+            underlying_values=self.underlying_values,
+            fact=self.fact,
+            reverse_op=self.reverse_op,
+            is_dismissed=self.is_dismissed,
+            is_merged=self.is_merged,
+            merged_children=[x.to_test_expr() for x in self.merged_children],
         )
 
 
+@dataclass(kw_only=True)
 class _P3Transform:
-    __slots__ = (
-        "spec",
-        "annotation",
-    )
-
-    def __init__(self) -> None:
-        self.spec = {}
-        self.annotation = ""
+    source_location: SourceLocation
+    spec: dict
+    annotation: str
 
     def to_transform(self) -> Transform:
-        return Transform(self.spec, self.annotation)
+        return Transform(
+            source_location=self.source_location,
+            spec=self.spec,
+            annotation=self.annotation,
+        )
 
 
 class _P3Analyzer:
@@ -705,25 +696,37 @@ class _P3Analyzer:
         return_points: list[_P3ReturnPoint] = []
 
         for raw_return_point in self._raw_return_points.file_offset_2_item.values():
-            return_point = _P3ReturnPoint()
-
             conditions = self._expand_conditions(raw_return_point.conditions)
             if isinstance(conditions, bool):
                 if not conditions:
                     continue
 
-                return_point.or_expr.and_exprs.append(_P3AndExpr())
+                or_expr = _P3OrExpr(
+                    and_exprs=[
+                        _P3AndExpr(test_exprs=[], index=-1, test_ids=set(), rank=[])
+                    ]
+                )
             else:
-                return_point.or_expr = self._make_or_expr(conditions)
+                or_expr = self._make_or_expr(conditions)
 
+            transform_list: list[_P3Transform] = []
             for raw_transform in raw_return_point.transform_list:
-                transform = _P3Transform()
-                transform.spec = raw_transform.spec
-                transform.annotation = raw_transform.annotation
-                return_point.transform_list.append(transform)
+                transform_list.append(
+                    _P3Transform(
+                        source_location=raw_transform.source_location,
+                        spec=raw_transform.spec,
+                        annotation=raw_transform.annotation,
+                    )
+                )
 
-            return_point.file_offset = raw_return_point.file_offset
-            return_points.append(return_point)
+            return_points.append(
+                _P3ReturnPoint(
+                    source_location=raw_return_point.source_location,
+                    or_expr=or_expr,
+                    transform_list=transform_list,
+                    file_offset=raw_return_point.file_offset,
+                )
+            )
 
         return_points.sort(key=return_point_rank)
         return return_points
@@ -752,10 +755,10 @@ class _P3Analyzer:
     def _make_or_expr(self, conditions: list[boolalg.Boolean]) -> _P3OrExpr:
         def and_expr_rank(and_expr: _P3AndExpr) -> Iterator[int]:
             for test_expr in and_expr.test_exprs:
-                yield test_expr.file_offset_1
-                yield test_expr.file_offset_2
+                yield test_expr.file_offsets[0]
+                yield test_expr.file_offsets[1]
 
-        or_expr = _P3OrExpr()
+        or_expr = _P3OrExpr(and_exprs=[])
 
         for condition in conditions:
             if condition.func is not boolalg.Or:
@@ -772,7 +775,7 @@ class _P3Analyzer:
         return or_expr
 
     def _make_and_expr(self, condition: boolalg.Boolean) -> _P3AndExpr:
-        and_expr = _P3AndExpr()
+        and_expr = _P3AndExpr(test_exprs=[], index=-1, test_ids=set(), rank=[])
 
         if condition.func is not boolalg.And:
             and_expr.test_exprs.append(self._make_test_expr(condition))
@@ -781,43 +784,45 @@ class _P3Analyzer:
         for condition_2 in condition.args:
             and_expr.test_exprs.append(self._make_test_expr(condition_2))  # type: ignore
 
-        and_expr.test_exprs.sort(key=lambda x: (x.file_offset_1, x.file_offset_2))
+        and_expr.test_exprs.sort(key=lambda x: x.file_offsets)
 
         return and_expr
 
     def _make_test_expr(self, condition: boolalg.Boolean) -> _P3TestExpr:
-        test_expr = _P3TestExpr()
-
+        condition_is_negative = False
         if condition.func is boolalg.Not:
-            test_expr.is_negative = True
+            condition_is_negative = True
             condition = condition.args[0]  # type: ignore
 
         assert condition.func is sympy.Symbol
         symbol_name = condition.name  # type: ignore
-        test_expr.file_offset_1, test_expr.file_offset_2 = map(
-            int, symbol_name.split(",", 1)
+        file_offset_1, file_offset_2 = map(int, symbol_name.split(",", 1))
+        test_args = self._raw_return_points.file_offsets_2_test_args[
+            file_offset_1, file_offset_2
+        ]
+
+        return _P3TestExpr(
+            source_location=test_args.source_location,
+            is_negative=condition_is_negative,
+            key=test_args.key,
+            key_index=test_args.key_index,
+            op=test_args.op,
+            values=test_args.values.copy(),
+            underlying_values=test_args.underlying_values.copy(),
+            fact=test_args.fact,
+            reverse_op=test_args.reverse_op,
+            is_merged=False,
+            is_dismissed=False,
+            merged_children=[],
+            file_offsets=(file_offset_1, file_offset_2),
+            test_id=self._make_test_id(condition_is_negative, test_args),
+            number_of_subkeys=test_args.number_of_subkeys,
+            equals_real_values=test_args.equals_real_values,
+            unequals_real_values=test_args.unequals_real_values,
         )
 
-        test_args = self._raw_return_points.file_offsets_2_test_args[
-            test_expr.file_offset_1, test_expr.file_offset_2
-        ]
-        test_expr.key = test_args.key
-        test_expr.key_index = test_args.key_index
-        test_expr.op = test_args.op
-        test_expr.values = test_args.values.copy()
-        test_expr.underlying_values = test_args.underlying_values.copy()
-        test_expr.fact = test_args.fact
-        test_expr.reverse_op = test_args.reverse_op
-        test_expr.number_of_subkeys = test_args.number_of_subkeys
-        test_expr.equals_real_values = test_args.equals_real_values
-        test_expr.unequals_real_values = test_args.unequals_real_values
-
-        test_expr.test_id = self._make_test_id(test_expr.is_negative, test_args)
-
-        return test_expr
-
-    def _make_test_id(self, is_negative: bool, test_args: _TestArgs) -> int:
-        if is_negative:
+    def _make_test_id(self, condition_is_negative: bool, test_args: _TestArgs) -> int:
+        if condition_is_negative:
             factor = -1
         else:
             factor = 1
@@ -984,8 +989,7 @@ class _P3Analyzer:
                     and_expr.rank.extend(
                         (
                             test_id_ref_weights[k + test_expr.test_id],
-                            test_expr.file_offset_1,
-                            test_expr.file_offset_2,
+                            *test_expr.file_offsets,
                             int(test_expr.is_negative),
                         )
                     )
@@ -1215,6 +1219,9 @@ class _P4Analyzer(Visitor):
 
 
 _dummy_file_offset = -1
+_dummy_source_location = SourceLocation(
+    file_name="", file_offset=-1, line_number=0, column_number=0
+)
 
 
 class Error(Exception):

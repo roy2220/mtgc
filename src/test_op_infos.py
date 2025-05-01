@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import jsonschema
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TestOpInfo:
     op: str
     reverse_op: str
