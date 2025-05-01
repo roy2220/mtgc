@@ -13,6 +13,36 @@ from gjson.exceptions import GJSONParseError
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
 
 
+class KeyRegistry:
+    __slots__ = (
+        "_loaded_key_file_names",
+        "_key_2_index",
+    )
+
+    def __init__(self) -> None:
+        self._loaded_key_file_names: set[str] = set()
+        self._key_2_index: dict[str, int] = {}
+
+    def load_keys_from_file(self, key_file_name: str) -> None:
+        if key_file_name in self._loaded_key_file_names:
+            return
+
+        with open(key_file_name, "r") as f:
+            key_info_list = json.load(f)
+
+        jsonschema.validate(key_info_list, _key_info_list_schema)
+
+        for key_info in key_info_list:
+            key = key_info["Key"]
+            key_index = key_info["Idx"]
+            self._key_2_index[key] = key_index
+
+        self._loaded_key_file_names.add(key_file_name)
+
+    def lookup_key(self, key: str) -> int | None:
+        return self._key_2_index.get(key)
+
+
 @dataclass(kw_only=True)
 class ComponentDeclaration:
     source_location: SourceLocation
@@ -218,12 +248,16 @@ class Visitor:
 
 
 class Parser:
-    __slots__ = ("_scanner", "_buffered_tokens", "_key_2_index")
+    __slots__ = (
+        "_scanner",
+        "_buffered_tokens",
+        "_key_registry",
+    )
 
-    def __init__(self, scanner: Scanner) -> None:
+    def __init__(self, scanner: Scanner, key_registry: KeyRegistry) -> None:
         self._scanner = scanner
+        self._key_registry = key_registry
         self._buffered_tokens: list[Token] = []
-        self._key_2_index: dict[str, int] = {}
 
     def get_component_declaration(self) -> ComponentDeclaration:
         self._import_files()
@@ -300,26 +334,16 @@ class Parser:
         current_file_name = self._get_expected_token(
             TokenType.IMPORT_KEYWORD
         ).source_location.file_name
-        file_name, source_location = self._get_string_with_source_location()
+        key_file_name, source_location = self._get_string_with_source_location()
 
         if current_file_name != "<unnamed>":
             current_dir_name = os.path.dirname(current_file_name)
-            file_name = os.path.join(current_dir_name, file_name)
+            key_file_name = os.path.join(current_dir_name, key_file_name)
 
         try:
-            with open(file_name, "r") as f:
-                key_index_info_list = json.load(f)
-
-            jsonschema.validate(key_index_info_list, _key_index_info_list_schema)
-
-            for key_index_info in key_index_info_list:
-                key = key_index_info["Key"]
-                key_index = key_index_info["Idx"]
-
-                self._key_2_index[key] = key_index
-
+            self._key_registry.load_keys_from_file(key_file_name)
         except Exception as e:
-            raise ImportFailureError(source_location, file_name, e)
+            raise ImportFailureError(source_location, key_file_name, e)
 
     def _get_bundle_declarations(self) -> list[BundleDeclaration]:
         bundle_declarations: list[BundleDeclaration] = []
@@ -426,7 +450,7 @@ class Parser:
             )
 
         key = transform_spec["to"]
-        key_index = self._key_2_index.get(key)
+        key_index = self._key_registry.lookup_key(key)
         if key_index is None:
             raise UnknownKeyError(source_location, key)
         transform_spec["underlying_to"] = key_index
@@ -452,7 +476,7 @@ class Parser:
                         ):
                             i += 1
                             key = parts[i]
-                            key_index = self._key_2_index.get(key)
+                            key_index = self._key_registry.lookup_key(key)
                             if key_index is None:
                                 raise UnknownKeyError(source_location, key)
                             parts[i] = str(key_index)
@@ -467,7 +491,7 @@ class Parser:
             if from1 is not None:
                 underlying_from: list[int] = []
                 for key in from1:
-                    key_index = self._key_2_index.get(key)
+                    key_index = self._key_registry.lookup_key(key)
                     if key_index is None:
                         raise UnknownKeyError(source_location, key)
                     underlying_from.append(int(key_index))
@@ -487,7 +511,7 @@ class Parser:
                     case "float":
                         underlying_op_type = 4
                     case _:
-                        underlying_op_type = self._key_2_index.get(op_type)
+                        underlying_op_type = self._key_registry.lookup_key(op_type)
                         if underlying_op_type is None:
                             raise UnknownKeyError(source_location, op_type)
                 operator["underlying_op_type"] = underlying_op_type
@@ -742,7 +766,7 @@ class Parser:
             values.append(value)
 
             if is_v_op:
-                key_index = self._key_2_index.get(value)
+                key_index = self._key_registry.lookup_key(value)
                 if key_index is None:
                     raise UnknownKeyError(source_location, value)
                 underlying_values.append(str(key_index))
@@ -797,10 +821,23 @@ class Parser:
 
     def _get_key(self) -> tuple[str, int]:
         key, source_location = self._get_string_with_source_location()
-        key_index = self._key_2_index.get(key)
+        key_index = self._key_registry.lookup_key(key)
         if key_index is None:
             raise UnknownKeyError(source_location, key)
         return key, key_index
+
+
+_key_info_list_schema = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "Idx": {"type": "integer"},
+            "Key": {"type": "string", "minLength": 1},
+        },
+        "required": ["Idx", "Key"],
+    },
+}
 
 
 _dummy_token = Token(
@@ -820,18 +857,6 @@ _token_type_2_binary_op_type: dict[TokenType, OpType] = {
 _binary_op_type_2_precedence: dict[OpType, int] = {
     OpType.LOGICAL_OR: 1,
     OpType.LOGICAL_AND: 2,
-}
-
-_key_index_info_list_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "Idx": {"type": "integer"},
-            "Key": {"type": "string", "minLength": 1},
-        },
-        "required": ["Idx", "Key"],
-    },
 }
 
 _transform_schema = {
@@ -1050,5 +1075,5 @@ class InvalidStringTemplateError(Error):
 class InvalidLabelPositionError(Error):
     def __init__(self, label: Label) -> None:
         super().__init__(
-            label.source_location, f"Label must be followed by a return statement"
+            label.source_location, f"label must be followed by a return statement"
         )

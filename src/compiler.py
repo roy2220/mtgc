@@ -8,12 +8,16 @@ from termcolor import colored
 from .analyzer import Analyzer, Component
 from .analyzer import Error as AnalyzerError
 from .excel_generator import ExcelGenerator
+from .linter import Linter
 from .match_transform_generator import MatchTransformGenerator
 from .parser import Error as ParserError
-from .parser import Parser
+from .parser import KeyRegistry, Parser
 from .scanner import Error as ScannerError
 from .scanner import Scanner
 from .test_op_infos import load_custom_test_op_infos_from_file
+
+_error_mark = "[" + colored("ERROR", "red", attrs=["bold"]) + "] "
+_warn_mark = "[" + colored("WARN", "blue", attrs=["bold"]) + "] "
 
 
 def main() -> None:
@@ -61,7 +65,7 @@ def main() -> None:
         raise SystemExit(f"no mtg file found in {repr(mtg_dir_name)}")
 
     try:
-        _compile_mtg_files(
+        components, key_registry = _compile_mtg_files(
             mtg_dir_name=mtg_dir_name,
             mtg_file_names=mtg_file_names,
             excel_file_name=excel_file_name,
@@ -69,8 +73,12 @@ def main() -> None:
             debug_log_file_name=debug_log_file_name,
         )
     except (ScannerError, AnalyzerError, ParserError) as e:
-        sys.stderr.write(f"{colored("ERROR", "red", attrs=["bold"])} {e}\n")
+        sys.stderr.write(_error_mark + str(e) + "\n")
         sys.exit(1)
+
+    linter = Linter(components, key_registry)
+    for warning in linter.check_components():
+        sys.stderr.write(_warn_mark + warning + "\n")
 
 
 def _compile_mtg_files(
@@ -80,18 +88,19 @@ def _compile_mtg_files(
     excel_file_name: str,
     match_transform_dir_name: str,
     debug_log_file_name: str | None,
-):
+) -> tuple[list[Component], KeyRegistry]:
     custom_test_op_infos_file_name = os.path.join(
         mtg_dir_name, ".custom_test_op_infos.json"
     )
     if os.path.exists(custom_test_op_infos_file_name):
         load_custom_test_op_infos_from_file(custom_test_op_infos_file_name)
 
+    key_registry = KeyRegistry()
     components: list[Component] = []
     for mtg_file_name in mtg_file_names:
         with open(mtg_file_name, "r") as f:
             scanner = Scanner(f)
-            parser = Parser(scanner)
+            parser = Parser(scanner, key_registry)
             analyzer = Analyzer(parser.get_component_declaration())
             components.append(analyzer.get_component())
 
@@ -102,6 +111,8 @@ def _compile_mtg_files(
         components, match_transform_dir_name, debug_log_file_name
     )
     match_transform_generator.dump_components()
+
+    return components, key_registry
 
 
 if __name__ == "__main__":
