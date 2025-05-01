@@ -496,7 +496,7 @@ class _P2Analyzer(Visitor):
             raise TooManyTestOpValuesError(test_condition.source_location, test_op_info)
 
         if test_op_info.multiple_op is not None:
-            # multiple_op is easy for _P3Analyzer._reduce_test_exprs
+            # multiple_op is easy for _P3Analyzer._reduce_test_exprs()
             test_op_info = test_op_infos[test_op_info.multiple_op]
 
         test_args = _TestArgs(
@@ -536,7 +536,7 @@ class _P2Analyzer(Visitor):
 
                 self._condition_stack.append(
                     boolalg.Or(a, boolalg.And(boolalg.Not(a), b))
-                    # use `a or ((not a) and b)` instead of `a or b` to make it easy for _P3Analyzer._reduce_test_exprs
+                    # use `a or ((not a) and b)` instead of `a or b` to make it easy for _P3Analyzer._reduce_test_exprs()
                 )
 
             case OpType.LOGICAL_AND:
@@ -548,7 +548,7 @@ class _P2Analyzer(Visitor):
 
                 self._condition_stack.append(
                     boolalg.And(a, boolalg.Or(boolalg.Not(a), b))
-                    # use `a and ((not a) or b)` instead of `a and b` to make it easy for _P3Analyzer._reduce_test_exprs
+                    # use `a and ((not a) or b)` instead of `a and b` to make it easy for _P3Analyzer._reduce_test_exprs()
                 )
 
             case _:
@@ -682,7 +682,8 @@ class _P3Analyzer:
         if optimization_level >= 2:
             self._dismiss_redundant_and_exprs(all_and_exprs)
 
-        self._merge_test_exprs(return_points)
+        if optimization_level >= 1:
+            self._merge_test_exprs(return_points)
 
         return return_points
 
@@ -785,7 +786,6 @@ class _P3Analyzer:
             and_expr.test_exprs.append(self._make_test_expr(condition_2))  # type: ignore
 
         and_expr.test_exprs.sort(key=lambda x: x.file_offsets)
-
         return and_expr
 
     def _make_test_expr(self, condition: boolalg.Boolean) -> _P3TestExpr:
@@ -848,17 +848,22 @@ class _P3Analyzer:
     def _reduce_return_points(
         cls, return_points: list[_P3ReturnPoint]
     ) -> list[_P3ReturnPoint]:
-        return_point_indexes = set(range(len(return_points)))
+        return_point_indexes = list(range(len(return_points)))
 
         for i, return_point in enumerate(return_points):
             or_expr = cls._reduce_or_expr(return_point.or_expr)
             if or_expr is None:
-                return_point_indexes.remove(i)
+                return_point_indexes[i] = -1
                 continue
 
             return_point.or_expr = or_expr
 
-        return list(map(lambda x: return_points[x], sorted(return_point_indexes)))
+        return list(
+            map(
+                lambda x: return_points[x],
+                filter(lambda x: x != -1, return_point_indexes),
+            )
+        )
 
     @classmethod
     def _reduce_or_expr(cls, or_expr: _P3OrExpr) -> _P3OrExpr | None:
@@ -871,41 +876,43 @@ class _P3Analyzer:
 
     @classmethod
     def _reduce_and_exprs(cls, and_exprs: list[_P3AndExpr]) -> list[_P3AndExpr] | None:
-        and_expr_indexes = set(range(len(and_exprs)))
+        and_expr_indexes = list(range(len(and_exprs)))
 
         for i, and_expr in enumerate(and_exprs):
             test_exprs = cls._reduce_test_exprs(and_expr.test_exprs)
             if test_exprs is None:
-                and_expr_indexes.remove(i)
+                and_expr_indexes[i] = -1
                 continue
 
             and_expr.test_exprs = test_exprs
             and_expr.test_ids = set(map(lambda x: x.test_id, test_exprs))
 
         for i, and_expr_x in enumerate(and_exprs):
-            if i not in and_expr_indexes:
+            if and_expr_indexes[i] == -1:
                 continue
 
             for j, and_expr_y in enumerate(and_exprs):
-                if j == i or j not in and_expr_indexes:
+                if j == i or and_expr_indexes[j] == -1:
                     continue
 
                 if and_expr_x.test_ids.issubset(and_expr_y.test_ids):
-                    and_expr_indexes.remove(j)
+                    and_expr_indexes[j] = -1
 
-        if len(and_expr_indexes) == 0:
+        new_and_exprs = list(
+            map(lambda x: and_exprs[x], filter(lambda x: x != -1, and_expr_indexes))
+        )
+        if len(new_and_exprs) == 0:
             return None
-
-        return list(map(lambda x: and_exprs[x], sorted(and_expr_indexes)))
+        return new_and_exprs
 
     @classmethod
     def _reduce_test_exprs(
         cls, test_exprs: list[_P3TestExpr]
     ) -> list[_P3TestExpr] | None:
-        test_expr_indexes = set(range(len(test_exprs)))
+        test_expr_indexes = list(range(len(test_exprs)))
 
         for i, test_expr_x in enumerate(test_exprs):
-            if i not in test_expr_indexes:
+            if test_expr_indexes[i] == -1:
                 continue
 
             x_real_values = None
@@ -915,12 +922,12 @@ class _P3Analyzer:
                 x_real_values = set(test_expr_x.real_values())
 
             for j, test_expr_y in enumerate(test_exprs):
-                if j == i or j not in test_expr_indexes:
+                if j == i or test_expr_indexes[j] == -1:
                     continue
 
                 if test_expr_y.test_id == test_expr_x.test_id:
                     # remove duplicate
-                    test_expr_indexes.remove(j)
+                    test_expr_indexes[j] = -1
                     continue
 
                 if test_expr_y.test_id == -test_expr_x.test_id:
@@ -944,28 +951,32 @@ class _P3Analyzer:
                         ),
                     ):
                         if x_real_values.issubset(test_expr_y.real_values()):
-                            # `in[a, b]` vs `in[a, b, c]`
+                            # X=`in[a, b]` vs Y=`in[a, b, c]`
                             # remove duplicate
-                            test_expr_indexes.remove(j)
+                            test_expr_indexes[j] = -1
                             continue
                         elif x_real_values.isdisjoint(test_expr_y.real_values()):
-                            # `in[a, b]` vs `in[c]`
+                            # X=`in[a, b]` vs Y=`in[c]`
                             # conflict
                             return None
-                        # `in[a, b]` vs `in[a, c]`
+                        else:
+                            pass  # `in[a, b]` vs `in[a, c]`, _do_merge_test_exprs() will deal with it
                     else:
                         if x_real_values.issubset(test_expr_y.real_values()):
-                            # `in[a, b]` vs `nin[a, b, c]`
+                            # X=`in[a, b]` vs Y=`nin[a, b, c]`
                             # conflict
                             return None
                         elif x_real_values.isdisjoint(test_expr_y.real_values()):
-                            # `in[a, b]` vs `nin[c]`
+                            # X=`in[a, b]` vs Y=`nin[c]`
                             # remove unused
-                            test_expr_indexes.remove(j)
+                            test_expr_indexes[j] = -1
                             continue
-                        # `in[a, b]` vs `nin[a, c]`
+                        else:
+                            pass  # `in[a, b]` vs `nin[a, c]`, _do_merge_test_exprs() will deal with it
 
-        return list(map(lambda x: test_exprs[x], sorted(test_expr_indexes)))
+        return list(
+            map(lambda x: test_exprs[x], filter(lambda x: x != -1, test_expr_indexes))
+        )
 
     def _arrange_all_and_exprs(
         self, return_points: list[_P3ReturnPoint]
@@ -1091,13 +1102,13 @@ class _P3Analyzer:
                                 test_expr_x.reverse_op,
                             ),
                         ):
-                            # merge `in[a, c]` into `in[a, b]`
+                            # merge Y=`in[a, c]` into X=`in[a, b]`
                             test_expr_x.values.extend(test_expr_y.real_values())
                             test_expr_x.underlying_values.extend(
                                 test_expr_y.real_underlying_values()
                             )
                         else:
-                            # merge `nin[a, c]` into `in[a, b]`
+                            # merge Y=`nin[a, c]` into X=`in[a, b]`
                             cls._remove_real_values(
                                 test_expr_x, set(test_expr_y.real_values())
                             )
@@ -1129,7 +1140,7 @@ class _P3Analyzer:
                     ) and tuple(test_expr_y.virtual_key()) == tuple(
                         test_expr_x.virtual_key()
                     ):
-                        # merge `nin[a, c]` into `nin[a, b]`
+                        # merge `Y=nin[a, c]` into X=`nin[a, b]`
                         test_expr_x.values.extend(test_expr_y.real_values())
                         test_expr_x.underlying_values.extend(
                             test_expr_y.real_underlying_values()
