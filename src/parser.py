@@ -109,8 +109,20 @@ class GotoStatement:
 @dataclass(kw_only=True)
 class Transform:
     source_location: SourceLocation
-    spec: dict
+    to: str
+    underlying_to: int
+    operators: list["TransformOperator"]
     annotation: str
+
+
+@dataclass(kw_only=True)
+class TransformOperator:
+    op: str
+    from1: list[str] | None
+    underlying_from: list[int] | None
+    values: list[str] | None
+    op_type: str | None
+    underlying_op_type: int | None
 
 
 @dataclass(kw_only=True)
@@ -428,19 +440,27 @@ class Parser:
             TokenType.TRANSFORM_KEYWORD
         ).source_location
         self._get_expected_token(TokenType.OPEN_PAREN)
-        transform_spec = self._get_transform_spec()
+        transform_spec, source_location = (
+            self._get_transform_spec_with_source_location()
+        )
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
         transform_annotation = _render_string_template(
             *self._get_string_with_source_location(), transform_spec
         )
+
+        to, underlying_to, operators = self._parse_transform_literal(
+            transform_spec, source_location
+        )
         return Transform(
             source_location=source_location,
-            spec=transform_spec,
+            to=to,
+            underlying_to=underlying_to,
+            operators=operators,
             annotation=transform_annotation,
         )
 
-    def _get_transform_spec(self) -> dict:
+    def _get_transform_spec_with_source_location(self) -> tuple[dict, SourceLocation]:
         transform_literal, source_location = self._get_string_with_source_location()
 
         try:
@@ -457,55 +477,35 @@ class Parser:
                 source_location, transform_literal, str(e)
             )
 
-        key = transform_spec["to"]
-        key_info = self._key_registry.lookup_key(key)
+        return transform_spec, source_location
+
+    def _parse_transform_literal(
+        self, transform_spec: dict, source_location: SourceLocation
+    ) -> tuple[str, int, list[TransformOperator]]:
+        to = transform_spec["to"]
+        key_info = self._key_registry.lookup_key(to)
         if key_info is None:
-            raise UnknownKeyError(source_location, key)
-        transform_spec["underlying_to"] = key_info.index
+            raise UnknownKeyError(source_location, to)
+        underlying_to = key_info.index
 
-        for operator in transform_spec["operators"]:
-            if operator["op"] == "expr":
-                values = operator.get("values")
-                if values is not None and len(values) >= 1:
-                    underlying_values = values.copy()
-                    expr_keys: list[str] = []
-                    parts = re.split(
-                        r"(^|[^a-zA-Z0-9_])(GetFunc(?:Int|Float))(\()([^\)]+)(\))",
-                        underlying_values[0],
-                        flags=re.MULTILINE,
-                    )
-                    i = 0
-                    last_part = ""
-                    while i < len(parts):
-                        if parts[i] == "(" and last_part in (
-                            "GetFunc",
-                            "GetFuncInt",
-                            "GetFuncFloat",
-                        ):
-                            i += 1
-                            key = parts[i]
-                            key_info = self._key_registry.lookup_key(key)
-                            if key_info is None:
-                                raise UnknownKeyError(source_location, key)
-                            parts[i] = str(key_info.index)
-                            expr_keys.append(key)
-                        last_part = parts[i]
-                        i += 1
-                    underlying_values[0] = "".join(parts)
-                    operator["underlying_values"] = underlying_values
-                    operator["expr_keys"] = expr_keys
+        operators: list[TransformOperator] = []
+        for operator_spec in transform_spec["operators"]:
+            op = operator_spec["op"]
 
-            from1 = operator.get("from")
+            from1 = operator_spec.get("from")
+            underlying_from: list[int] | None = None
             if from1 is not None:
-                underlying_from: list[int] = []
+                underlying_from = []
                 for key in from1:
                     key_info = self._key_registry.lookup_key(key)
                     if key_info is None:
                         raise UnknownKeyError(source_location, key)
                     underlying_from.append(key_info.index)
-                operator["underlying_from"] = underlying_from
 
-            op_type = operator.get("op_type")
+            values = operator_spec.get("values")
+
+            op_type = operator_spec.get("op_type")
+            underlying_op_type = None
             if op_type is not None:
                 match op_type:
                     case "any":
@@ -523,9 +523,19 @@ class Parser:
                         if key_info is None:
                             raise UnknownKeyError(source_location, op_type)
                         underlying_op_type = key_info.index
-                operator["underlying_op_type"] = underlying_op_type
 
-        return transform_spec
+            operators.append(
+                TransformOperator(
+                    op=op,
+                    from1=from1,
+                    underlying_from=underlying_from,
+                    values=values,
+                    op_type=op_type,
+                    underlying_op_type=underlying_op_type,
+                )
+            )
+
+        return (to, underlying_to, operators)
 
     def _get_statements(self) -> list[Statement]:
         statements: list[Statement] = []

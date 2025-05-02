@@ -19,9 +19,10 @@ from .parser import (
     Statement,
     SwitchStatement,
     TestCondiction,
+    Transform,
+    UnitDeclaration,
+    Visitor,
 )
-from .parser import Transform as RawTransform
-from .parser import UnitDeclaration, Visitor
 from .scanner import SourceLocation
 from .test_op_infos import TestOpInfo, test_op_infos
 
@@ -53,14 +54,7 @@ class Unit:
 class ReturnPoint:
     source_location: SourceLocation
     or_expr: "OrExpr"
-    transform_list: list["Transform"]
-
-
-@dataclass(kw_only=True)
-class Transform:
-    source_location: SourceLocation
-    spec: dict
-    annotation: str
+    transform_list: list[Transform]
 
 
 @dataclass(kw_only=True)
@@ -276,7 +270,7 @@ class _P1Analyzer(Visitor):
 
 @dataclass(kw_only=True)
 class _P2ReturnPoints:
-    default_transform_list: list[RawTransform]
+    default_transform_list: list[Transform]
     default_return_point_file_offsets: set[int]
     file_offset_2_item: dict[int, "_P2ReturnPoint"]
     file_offsets_2_test_args: dict[tuple[int, int], "_TestArgs"]
@@ -286,7 +280,7 @@ class _P2ReturnPoints:
 class _P2ReturnPoint:
     source_location: SourceLocation
     file_offset: int
-    transform_list: list[RawTransform]
+    transform_list: list[Transform]
     conditions: list[boolalg.Boolean]
 
 
@@ -315,7 +309,7 @@ class _P2Analyzer(Visitor):
     )
 
     def __init__(
-        self, default_transform_list: list[RawTransform], program_link: Statement
+        self, default_transform_list: list[Transform], program_link: Statement
     ) -> None:
         self._program_link = program_link
         self._symbols: dict[str, sympy.Symbol] = {}
@@ -559,7 +553,7 @@ class _P2Analyzer(Visitor):
 class _P3ReturnPoint:
     source_location: SourceLocation
     or_expr: "_P3OrExpr"
-    transform_list: list["_P3Transform"]
+    transform_list: list[Transform]
 
     file_offset: int
 
@@ -567,7 +561,7 @@ class _P3ReturnPoint:
         return ReturnPoint(
             source_location=self.source_location,
             or_expr=self.or_expr.to_or_expr(),
-            transform_list=[x.to_transform() for x in self.transform_list],
+            transform_list=self.transform_list,
         )
 
 
@@ -647,20 +641,6 @@ class _P3TestExpr:
         )
 
 
-@dataclass(kw_only=True)
-class _P3Transform:
-    source_location: SourceLocation
-    spec: dict
-    annotation: str
-
-    def to_transform(self) -> Transform:
-        return Transform(
-            source_location=self.source_location,
-            spec=self.spec,
-            annotation=self.annotation,
-        )
-
-
 class _P3Analyzer:
     __slots__ = (
         "_raw_return_points",
@@ -710,21 +690,11 @@ class _P3Analyzer:
             else:
                 or_expr = self._make_or_expr(conditions)
 
-            transform_list: list[_P3Transform] = []
-            for raw_transform in raw_return_point.transform_list:
-                transform_list.append(
-                    _P3Transform(
-                        source_location=raw_transform.source_location,
-                        spec=raw_transform.spec,
-                        annotation=raw_transform.annotation,
-                    )
-                )
-
             return_points.append(
                 _P3ReturnPoint(
                     source_location=raw_return_point.source_location,
                     or_expr=or_expr,
-                    transform_list=transform_list,
+                    transform_list=raw_return_point.transform_list,
                     file_offset=raw_return_point.file_offset,
                 )
             )

@@ -207,7 +207,7 @@ class _NameChecker(_Checker):
         self.walk_transform_list()
 
     def check_transform(self) -> None:
-        transform_to_key = _convert_key_to_field_path(self.transform.spec["to"])
+        transform_to_key = _convert_key_to_field_path(self.transform.to)
 
         if _field_paths_are_overlap(self.bundle_name, transform_to_key):
             if transform_to_key not in self._transform_to_keys_within_unit.keys():

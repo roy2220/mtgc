@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any
 
 from .analyzer import AndExpr, Bundle, Component, OrExpr, ReturnPoint, TestExpr, Unit
 from .test_op_infos import replace_with_real_op
@@ -124,29 +125,26 @@ class MatchTransformGenerator:
         for transform in return_point.transform_list:
             operators: list[dict] = []
 
-            for operator in transform.spec["operators"]:
-                operator_2 = {"op": operator["op"]}
+            for operator in transform.operators:
+                operator_2: dict[str, Any] = {"op": operator.op}
 
-                if (v := operator.get("underlying_from")) is not None:
+                if (v := operator.underlying_from) is not None:
                     operator_2["from"] = v
-                    operator_2["__named_from__"] = operator["from"]
+                    operator_2["__named_from__"] = operator.from1
 
-                if (v := operator.get("underlying_values")) is not None:
-                    operator_2["values"] = v
-                    operator_2["__named_values__"] = operator["values"]
-                elif (v := operator.get("values")) is not None:
+                if (v := operator.values) is not None:
                     operator_2["values"] = v
 
-                if (v := operator.get("underlying_op_type")) is not None:
+                if (v := operator.underlying_op_type) is not None:
                     operator_2["op_type"] = v
-                    operator_2["__named_op_type__"] = operator["op_type"]
+                    operator_2["__named_op_type__"] = operator.op_type
 
                 operators.append(operator_2)
 
             transform_2 = {
                 "__comment__": transform.annotation,
-                "to": transform.spec["underlying_to"],
-                "__named_to__": transform.spec["to"],
+                "to": transform.underlying_to,
+                "__named_to__": transform.to,
                 "operators": operators,
             }
             transforms.append(transform_2)

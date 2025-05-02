@@ -302,7 +302,7 @@ class ExcelGenerator:
         outputs: list[str] = []
         for return_point in unit.return_points:
             for transform in return_point.transform_list:
-                output = transform.spec["to"]
+                output = transform.to
                 if output not in outputs:
                     outputs.append(output)
         return outputs
@@ -463,7 +463,7 @@ class ExcelGenerator:
                     transform_texts: list[str] = []
                     transform_annotations: list[str] = []
                     for transform in return_point.transform_list:
-                        output_2 = transform.spec["to"]
+                        output_2 = transform.to
                         if output_2 == output:
                             transform_texts.append(self._make_transform_text(transform))
                             transform_annotations.append(transform.annotation)
@@ -543,14 +543,14 @@ class ExcelGenerator:
 
     def _make_transform_text(self, transform: Transform) -> str:
         parts: list[str] = []
-        for i, operator in enumerate(transform.spec["operators"]):
+        for i, operator in enumerate(transform.operators):
             if i >= 1:
                 parts.append("|")
 
-            parts.append(self._hilight_text(operator["op"]))
+            parts.append(self._hilight_text(operator.op))
             parts.append("(")
 
-            from1 = operator.get("from")
+            from1 = operator.from1
             if from1 is None:
                 from1 = []
             else:
@@ -562,7 +562,7 @@ class ExcelGenerator:
                 parts.append("=")
                 parts.append(json.dumps(from1, ensure_ascii=False))
 
-            values = operator.get("values")
+            values = operator.values
             if values is None:
                 values = []
             else:
@@ -576,8 +576,8 @@ class ExcelGenerator:
                 parts.append("=")
                 parts.append(json.dumps(values, ensure_ascii=False))
 
-            op_type = operator.get("op_type", "")
-            if op_type != "":
+            op_type = operator.op_type
+            if op_type is not None:
                 if len(from1) + len(values) >= 1:
                     parts.append(",")
                 parts.append("op_type")
@@ -742,14 +742,11 @@ class ExcelGenerator:
     def _reference_extra_symbols_in_transform(
         self, transform: Transform, column_index: int
     ) -> None:
-        for operator in transform.spec["operators"]:
-            from1 = operator.get("from")
+        for operator in transform.operators:
+            from1 = operator.from1
             if from1 is None:
                 from1 = []
-            expr_keys = operator.get("expr_keys")
-            if expr_keys is None:
-                expr_keys = []
-            for symbol_key in from1 + expr_keys:
+            for symbol_key in from1:
                 self._symbol_references.append(
                     _SymbolReference(
                         kind=_SymbolReferenceKind.THEN_EXTRA,
