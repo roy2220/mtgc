@@ -17,7 +17,7 @@ from .scanner import Scanner
 from .test_op_infos import load_custom_test_op_infos_from_file
 
 _error_mark = "[" + colored("ERROR", "red", attrs=["bold"]) + "] "
-_warn_mark = "[" + colored("WARN", "blue", attrs=["bold"]) + "] "
+_warn_mark = "[" + colored("WARN", "yellow", attrs=["bold"]) + "] "
 
 
 def main() -> None:

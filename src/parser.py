@@ -13,15 +13,22 @@ from gjson.exceptions import GJSONParseError
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
 
 
+@dataclass(kw_only=True)
+class KeyInfo:
+    key: str
+    index: int
+    type: str
+
+
 class KeyRegistry:
     __slots__ = (
         "_loaded_key_file_names",
-        "_key_2_index",
+        "_key_infos",
     )
 
     def __init__(self) -> None:
         self._loaded_key_file_names: set[str] = set()
-        self._key_2_index: dict[str, int] = {}
+        self._key_infos: dict[str, KeyInfo] = {}
 
     def load_keys_from_file(self, key_file_name: str) -> None:
         if key_file_name in self._loaded_key_file_names:
@@ -34,13 +41,14 @@ class KeyRegistry:
 
         for key_info in key_info_list:
             key = key_info["Key"]
-            key_index = key_info["Idx"]
-            self._key_2_index[key] = key_index
+            self._key_infos[key] = KeyInfo(
+                key=key, index=key_info["Idx"], type=key_info["Type"]
+            )
 
         self._loaded_key_file_names.add(key_file_name)
 
-    def lookup_key(self, key: str) -> int | None:
-        return self._key_2_index.get(key)
+    def lookup_key(self, key: str) -> KeyInfo | None:
+        return self._key_infos.get(key)
 
 
 @dataclass(kw_only=True)
@@ -450,10 +458,10 @@ class Parser:
             )
 
         key = transform_spec["to"]
-        key_index = self._key_registry.lookup_key(key)
-        if key_index is None:
+        key_info = self._key_registry.lookup_key(key)
+        if key_info is None:
             raise UnknownKeyError(source_location, key)
-        transform_spec["underlying_to"] = key_index
+        transform_spec["underlying_to"] = key_info.index
 
         for operator in transform_spec["operators"]:
             if operator["op"] == "expr":
@@ -476,10 +484,10 @@ class Parser:
                         ):
                             i += 1
                             key = parts[i]
-                            key_index = self._key_registry.lookup_key(key)
-                            if key_index is None:
+                            key_info = self._key_registry.lookup_key(key)
+                            if key_info is None:
                                 raise UnknownKeyError(source_location, key)
-                            parts[i] = str(key_index)
+                            parts[i] = str(key_info.index)
                             expr_keys.append(key)
                         last_part = parts[i]
                         i += 1
@@ -491,10 +499,10 @@ class Parser:
             if from1 is not None:
                 underlying_from: list[int] = []
                 for key in from1:
-                    key_index = self._key_registry.lookup_key(key)
-                    if key_index is None:
+                    key_info = self._key_registry.lookup_key(key)
+                    if key_info is None:
                         raise UnknownKeyError(source_location, key)
-                    underlying_from.append(int(key_index))
+                    underlying_from.append(key_info.index)
                 operator["underlying_from"] = underlying_from
 
             op_type = operator.get("op_type")
@@ -511,9 +519,10 @@ class Parser:
                     case "float":
                         underlying_op_type = 4
                     case _:
-                        underlying_op_type = self._key_registry.lookup_key(op_type)
-                        if underlying_op_type is None:
+                        key_info = self._key_registry.lookup_key(op_type)
+                        if key_info is None:
                             raise UnknownKeyError(source_location, op_type)
+                        underlying_op_type = key_info.index
                 operator["underlying_op_type"] = underlying_op_type
 
         return transform_spec
@@ -573,14 +582,14 @@ class Parser:
         ).source_location
         self._get_expected_token(TokenType.GET_KEYWORD)
         self._get_expected_token(TokenType.OPEN_PAREN)
-        key, key_index = self._get_key()
+        key_info = self._get_key_info()
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.OPEN_BRACE)
 
-        case_clause = self._get_case_clause(key)
+        case_clause = self._get_case_clause(key_info.key)
         case_clauses: list[CaseClause] = [case_clause]
         while self._peek_token(1).type == TokenType.CASE_KEYWORD:
-            case_clause = self._get_case_clause(key)
+            case_clause = self._get_case_clause(key_info.key)
             case_clauses.append(case_clause)
 
         default_case_clause = self._maybe_get_default_case_clause()
@@ -588,8 +597,8 @@ class Parser:
 
         return SwitchStatement(
             source_location=source_location,
-            key=key,
-            key_index=key_index,
+            key=key_info.key,
+            key_index=key_info.index,
             case_clauses=case_clauses,
             default_case_clause=default_case_clause,
         )
@@ -746,7 +755,7 @@ class Parser:
             TokenType.TEST_KEYWORD
         ).source_location
         self._get_expected_token(TokenType.OPEN_PAREN)
-        key, key_index = self._get_key()
+        key_info = self._get_key_info()
         self._get_expected_token(TokenType.COMMA)
         op = self._get_string()
         is_v_op = op.startswith("v_")
@@ -766,22 +775,22 @@ class Parser:
             values.append(value)
 
             if is_v_op:
-                key_index = self._key_registry.lookup_key(value)
-                if key_index is None:
+                key_info_2 = self._key_registry.lookup_key(value)
+                if key_info_2 is None:
                     raise UnknownKeyError(source_location, value)
-                underlying_values.append(str(key_index))
+                underlying_values.append(str(key_info_2.index))
 
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)
         fact = _render_string_template(
             *self._get_string_with_source_location(),
-            {"key": key, "op": op, "values": values},
+            {"key": key_info.key, "op": op, "values": values},
         )
 
         return TestCondiction(
             source_location=source_location,
-            key=key,
-            key_index=key_index,
+            key=key_info.key,
+            key_index=key_info.index,
             op=op,
             values=values,
             underlying_values=underlying_values,
@@ -819,12 +828,12 @@ class Parser:
 
         return buffer.getvalue(), source_location
 
-    def _get_key(self) -> tuple[str, int]:
+    def _get_key_info(self) -> KeyInfo:
         key, source_location = self._get_string_with_source_location()
-        key_index = self._key_registry.lookup_key(key)
-        if key_index is None:
+        key_info = self._key_registry.lookup_key(key)
+        if key_info is None:
             raise UnknownKeyError(source_location, key)
-        return key, key_index
+        return key_info
 
 
 _key_info_list_schema = {
@@ -834,6 +843,7 @@ _key_info_list_schema = {
         "properties": {
             "Idx": {"type": "integer"},
             "Key": {"type": "string", "minLength": 1},
+            "Type": {"type": "string", "minLength": 1},
         },
         "required": ["Idx", "Key"],
     },
