@@ -95,6 +95,7 @@ assert len(_token_type_2_str) == TokenType.IDENTIFIER - TokenType.NONE + 1
 @dataclass(kw_only=True)
 class SourceLocation:
     file_name: str
+    short_file_name: str
     file_offset: int
     line_number: int
     column_number: int
@@ -104,15 +105,19 @@ class Scanner:
     __slots__ = (
         "_stream",
         "_file_name",
+        "_short_file_name",
         "_file_offset",
         "_line_number",
         "_column_number",
         "_buffered_chars",
     )
 
-    def __init__(self, stream: io.TextIOBase) -> None:
+    def __init__(
+        self, stream: io.TextIOBase, file_name: str, short_file_name: str
+    ) -> None:
         self._stream = stream
-        self._file_name = getattr(stream, "name", "<unnamed>")
+        self._file_name = file_name
+        self._short_file_name = short_file_name
         self._file_offset = 0
         self._line_number = 1
         self._column_number = 1
@@ -229,6 +234,7 @@ class Scanner:
     def _source_location(self) -> SourceLocation:
         return SourceLocation(
             file_name=self._file_name,
+            short_file_name=self._short_file_name,
             file_offset=self._file_offset,
             line_number=self._line_number,
             column_number=self._column_number,
@@ -363,7 +369,7 @@ _keyword_2_token_type = {
 class Error(Exception):
     def __init__(self, source_location: SourceLocation, description: str) -> None:
         super().__init__(
-            f"{source_location.file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
+            f"{source_location.short_file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
         )
 
 

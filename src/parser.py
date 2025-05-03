@@ -10,45 +10,8 @@ import jsonschema
 from gjson import GJSON
 from gjson.exceptions import GJSONParseError
 
+from .key_registry import KeyInfo, KeyRegistry
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
-
-
-@dataclass(kw_only=True)
-class KeyInfo:
-    key: str
-    index: int
-    type: str
-
-
-class KeyRegistry:
-    __slots__ = (
-        "_loaded_key_file_names",
-        "_key_infos",
-    )
-
-    def __init__(self) -> None:
-        self._loaded_key_file_names: set[str] = set()
-        self._key_infos: dict[str, KeyInfo] = {}
-
-    def load_keys_from_file(self, key_file_name: str) -> None:
-        if key_file_name in self._loaded_key_file_names:
-            return
-
-        with open(key_file_name, "r") as f:
-            key_info_list = json.load(f)
-
-        jsonschema.validate(key_info_list, _key_info_list_schema)
-
-        for key_info in key_info_list:
-            key = key_info["Key"]
-            self._key_infos[key] = KeyInfo(
-                key=key, index=key_info["Idx"], type=key_info["Type"]
-            )
-
-        self._loaded_key_file_names.add(key_file_name)
-
-    def lookup_key(self, key: str) -> KeyInfo | None:
-        return self._key_infos.get(key)
 
 
 @dataclass(kw_only=True)
@@ -354,16 +317,14 @@ class Parser:
         current_file_name = self._get_expected_token(
             TokenType.IMPORT_KEYWORD
         ).source_location.file_name
-        key_file_name, source_location = self._get_string_with_source_location()
-
-        if current_file_name != "<unnamed>":
-            current_dir_name = os.path.dirname(current_file_name)
-            key_file_name = os.path.join(current_dir_name, key_file_name)
+        current_dir_name = os.path.dirname(current_file_name)
+        warehouse_dir_name, source_location = self._get_string_with_source_location()
+        warehouse_dir_name = os.path.join(current_dir_name, warehouse_dir_name)
 
         try:
-            self._key_registry.load_keys_from_file(key_file_name)
+            self._key_registry.load_keys_from_warehouse(warehouse_dir_name)
         except Exception as e:
-            raise ImportFailureError(source_location, key_file_name, e)
+            raise ImportFailureError(source_location, warehouse_dir_name, e)
 
     def _get_bundle_declarations(self) -> list[BundleDeclaration]:
         bundle_declarations: list[BundleDeclaration] = []
@@ -846,25 +807,11 @@ class Parser:
         return key_info
 
 
-_key_info_list_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "Idx": {"type": "integer"},
-            "Key": {"type": "string", "minLength": 1},
-            "Type": {"type": "string", "minLength": 1},
-        },
-        "required": ["Idx", "Key"],
-    },
-}
-
-
 _dummy_token = Token(
     type=TokenType.NONE,
     data="",
     source_location=SourceLocation(
-        file_name="", file_offset=-1, line_number=0, column_number=0
+        file_name="", short_file_name="", file_offset=-1, line_number=0, column_number=0
     ),
 )
 
@@ -1039,7 +986,7 @@ def _convert_obj_to_text(obj: Any) -> str:
 class Error(Exception):
     def __init__(self, source_location: SourceLocation, description: str) -> None:
         super().__init__(
-            f"{source_location.file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
+            f"{source_location.short_file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
         )
 
 

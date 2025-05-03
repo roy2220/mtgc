@@ -70,6 +70,7 @@ class AndExpr:
 
 @dataclass(kw_only=True)
 class TestExpr:
+    test_id: int
     source_location: SourceLocation
     is_negative: bool
     key: str
@@ -589,6 +590,7 @@ class _P3AndExpr:
 
 @dataclass(kw_only=True)
 class _P3TestExpr:
+    test_id: int
     source_location: SourceLocation
     is_negative: bool
     key: str
@@ -603,7 +605,6 @@ class _P3TestExpr:
     merged_children: list["_P3TestExpr"]
 
     file_offsets: tuple[int, int]
-    test_id: int
     number_of_subkeys: int
     equals_real_values: bool
     unequals_real_values: bool
@@ -626,6 +627,7 @@ class _P3TestExpr:
 
     def to_test_expr(self) -> TestExpr:
         return TestExpr(
+            test_id=self.test_id,
             source_location=self.source_location,
             is_negative=self.is_negative,
             key=self.key,
@@ -772,6 +774,7 @@ class _P3Analyzer:
         ]
 
         return _P3TestExpr(
+            test_id=self._make_test_id(condition_is_negative, test_args),
             source_location=test_args.source_location,
             is_negative=condition_is_negative,
             key=test_args.key,
@@ -785,7 +788,6 @@ class _P3Analyzer:
             is_dismissed=False,
             merged_children=[],
             file_offsets=(file_offset_1, file_offset_2),
-            test_id=self._make_test_id(condition_is_negative, test_args),
             number_of_subkeys=test_args.number_of_subkeys,
             equals_real_values=test_args.equals_real_values,
             unequals_real_values=test_args.unequals_real_values,
@@ -1201,14 +1203,14 @@ class _P4Analyzer(Visitor):
 
 _dummy_file_offset = -1
 _dummy_source_location = SourceLocation(
-    file_name="", file_offset=-1, line_number=0, column_number=0
+    file_name="", short_file_name="", file_offset=-1, line_number=0, column_number=0
 )
 
 
 class Error(Exception):
     def __init__(self, source_location: SourceLocation, description: str) -> None:
         super().__init__(
-            f"{source_location.file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
+            f"{source_location.short_file_name}:{source_location.line_number}:{source_location.column_number}: {description}"
         )
 
 

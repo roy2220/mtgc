@@ -8,16 +8,17 @@ from termcolor import colored
 from .analyzer import Analyzer, Component
 from .analyzer import Error as AnalyzerError
 from .excel_generator import ExcelGenerator
+from .key_registry import KeyRegistry
 from .linter import Linter
 from .match_transform_generator import MatchTransformGenerator
 from .parser import Error as ParserError
-from .parser import KeyRegistry, Parser
+from .parser import Parser
 from .scanner import Error as ScannerError
 from .scanner import Scanner
 from .test_op_infos import load_custom_test_op_infos_from_file
 
 _error_mark = "[" + colored("ERROR", "red", attrs=["bold"]) + "] "
-_warn_mark = "[" + colored("WARN", "yellow", attrs=["bold"]) + "] "
+_warning_mark = "[" + colored("WARNING", "yellow", attrs=["bold"]) + "] "
 
 
 def main() -> None:
@@ -78,7 +79,7 @@ def main() -> None:
 
     linter = Linter(components, key_registry)
     for warning in linter.check_components():
-        sys.stderr.write(_warn_mark + warning + "\n")
+        sys.stderr.write(_warning_mark + warning + "\n")
 
 
 def _compile_mtg_files(
@@ -99,7 +100,9 @@ def _compile_mtg_files(
     components: list[Component] = []
     for mtg_file_name in mtg_file_names:
         with open(mtg_file_name, "r") as f:
-            scanner = Scanner(f)
+            scanner = Scanner(
+                f, mtg_file_name, os.path.relpath(mtg_file_name, mtg_dir_name)
+            )
             parser = Parser(scanner, key_registry)
             analyzer = Analyzer(parser.get_component_declaration())
             components.append(analyzer.get_component())
