@@ -213,6 +213,7 @@ class Scanner:
                 elif c == "/":
                     c2 = self._peek_char(1)
                     if c2 == "/":
+                        self._discard_chars(1)
                         return Token(
                             type=TokenType.COMMENT,
                             data=self._get_comment([c, c2]),
@@ -325,9 +326,9 @@ class Scanner:
     def _get_comment(self, chars: list[str]) -> str:
         while True:
             c = self._get_char()
-            chars.append(c)
             if c == "\n":
                 return "".join(chars)
+            chars.append(c)
 
 
 _dummy_char = chr(0)

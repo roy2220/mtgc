@@ -1,11 +1,18 @@
 import re
+from dataclasses import dataclass
 from typing import Iterator
 
-from .analyzer import Component
+from .analyzer import Bundle, Component
 from .key_registry import KeyRegistry
 from .scanner import SourceLocation
 
 type _FieldPath = tuple[str, ...]
+
+
+@dataclass(kw_only=True)
+class _KeyRelatedBundleNames:
+    closest: dict[_FieldPath, _FieldPath]
+    stub_query: dict[_FieldPath, _FieldPath]
 
 
 class Linter:
@@ -15,19 +22,24 @@ class Linter:
     )
 
     def __init__(self, components: list[Component], key_registry: KeyRegistry) -> None:
-        closest_bundle_names = self._make_closest_bundle_names(components)
+        key_related_bundle_names = self._make_key_related_bundle_names(components)
 
         self._warnings: list[str] = []
         self._checkers: list[_Checker] = [
             _NameChecker(
                 components,
                 key_registry,
-                closest_bundle_names,
+                key_related_bundle_names,
                 self._warnings,
             ),
-            _DependencyChecker(
+            _BundleDependencyChecker(
                 components,
-                closest_bundle_names,
+                key_related_bundle_names,
+                self._warnings,
+            ),
+            _UnitDependencyChecker(
+                components,
+                key_related_bundle_names,
                 self._warnings,
             ),
             _TypeChecker(
@@ -38,10 +50,9 @@ class Linter:
         ]
 
     @classmethod
-    def _make_closest_bundle_names(
-        cls,
-        components: list[Component],
-    ) -> dict[_FieldPath, _FieldPath]:
+    def _make_key_related_bundle_names(
+        cls, components: list[Component]
+    ) -> _KeyRelatedBundleNames:
         walker = _Walker(components)
 
         bundle_names: set[_FieldPath] = set()
@@ -62,23 +73,30 @@ class Linter:
                                 keys.update(walker.from_keys)
 
         closest_bundle_names: dict[_FieldPath, _FieldPath] = {}
+        stub_query_bundle_names: dict[_FieldPath, _FieldPath] = {}
+
         for key in keys:
-            closest_bundle_name = ()
             for n in reversed(range(1, 1 + len(key))):
                 bundle_name = key[:n]
                 if bundle_name in bundle_names:
-                    closest_bundle_name = bundle_name
+                    closest_bundle_names[key] = bundle_name
                     break
-                field_name = key[n - 1]
-                if (
-                    _data_stub_field_name_pattern.fullmatch(field_name) is not None
-                    and _data_stub_query_field_name_pattern.fullmatch(field_name)
-                    is None
-                ):
-                    break
-            closest_bundle_names[key] = closest_bundle_name
 
-        return closest_bundle_names
+                field_name = key[n - 1]
+                if _stub_field_name_pattern.fullmatch(
+                    field_name
+                ) is not None and not field_name.endswith("Query"):
+                    stub_query_bundle_name = bundle_name[: n - 1] + (
+                        field_name + "Query",
+                    )
+                    if stub_query_bundle_name in bundle_names:
+                        stub_query_bundle_names[key] = stub_query_bundle_name
+                    break
+
+        return _KeyRelatedBundleNames(
+            closest=closest_bundle_names,
+            stub_query=stub_query_bundle_names,
+        )
 
     def check_components(self) -> list[str]:
         for checker in self._checkers:
@@ -237,18 +255,26 @@ class _Checker(_Walker):
         self._warnings = warnings
 
     def add_warning(self, source_location: SourceLocation, message: str) -> None:
+        line_directives = self.component.line_directives.get(
+            source_location.line_number
+        )
+        if line_directives is not None:
+            for line_directive in line_directives:
+                if line_directive == "lint:ignore":
+                    return
+
         self._warnings.append(
             f"{source_location.short_file_name}:{source_location.line_number}:{source_location.column_number}: {message}"
         )
 
     def check_components(self) -> None:
-        pass
+        raise NotImplementedError()
 
 
 class _NameChecker(_Checker):
     __slots__ = (
         "_key_registry",
-        "_closest_bundle_names",
+        "_key_related_bundle_names",
         "_to_keys_within_bundle",
         "_to_keys_within_unit",
         "_checked_test_ids_within_unit",
@@ -259,14 +285,14 @@ class _NameChecker(_Checker):
         self,
         components: list[Component],
         key_registry: KeyRegistry,
-        closest_bundle_names: dict[_FieldPath, _FieldPath],
+        key_related_bundle_names: _KeyRelatedBundleNames,
         warnings: list[str],
     ) -> None:
         super().__init__(components, warnings)
         self._key_registry = key_registry
-        self._closest_bundle_names = closest_bundle_names
+        self._key_related_bundle_names = key_related_bundle_names
         self._to_keys_within_bundle: dict[_FieldPath, SourceLocation] = {}
-        self._to_keys_within_unit: dict[_FieldPath, SourceLocation] = {}
+        self._to_keys_within_unit: dict[_FieldPath, list[SourceLocation]] = {}
         self._checked_test_ids_within_unit: set[int] = set()
         self._to_keys_within_return_point: dict[_FieldPath, SourceLocation] = {}
 
@@ -323,7 +349,7 @@ class _NameChecker(_Checker):
 
             for (
                 to_key_x,
-                source_location_x,
+                source_locations_x,
             ) in self._to_keys_within_unit.items():
                 for (
                     to_key_y,
@@ -333,38 +359,61 @@ class _NameChecker(_Checker):
                         continue
 
                     if len(to_key_x) == len(to_key_y):
-                        self.add_warning(
-                            source_location_x,
-                            "duplicate `to` key of transform should only be used within a single unit, "
-                            + f"but key {repr(_convert_field_path_to_key(to_key_x))} is also used within another units on line {source_location_y.line_number}",
-                        )
-                    else:
-                        if len(to_key_x) < len(to_key_y):
+                        for source_location_x in source_locations_x:
+                            self.add_warning(
+                                source_location_x,
+                                "duplicate `to` key of transform should only be used within a single unit, "
+                                + f"but key {repr(_convert_field_path_to_key(to_key_x))} is also used within another units on line {source_location_y.line_number}",
+                            )
+                    elif len(to_key_x) < len(to_key_y):
+                        for source_location_x in source_locations_x:
                             self.add_warning(
                                 source_location_x,
                                 "duplicate `to` key of transform should only be used within a single unit, "
                                 + f"but key {repr(_convert_field_path_to_key(to_key_x))} is also used implicitly within another units on line {source_location_y.line_number}",
                             )
-                        else:
+                    else:
+                        for source_location_x in source_locations_x:
                             self.add_warning(
                                 source_location_y,
                                 "duplicate `to` key of transform should only be used within a single unit, "
                                 + f"but key {repr(_convert_field_path_to_key(to_key_y))} is also used implicitly within another units on line {source_location_y.line_number}",
                             )
 
-            self._to_keys_within_bundle.update(self._to_keys_within_unit)
+            for k, vs in self._to_keys_within_unit.items():
+                v = self._to_keys_within_bundle.get(k)
+                if v is not None:
+                    continue
+                self._to_keys_within_bundle[k] = vs[0]
 
     def _check_return_points(self) -> None:
         for _ in self.walk_return_points():
-            self._check_test_exprs()
             self._to_keys_within_return_point.clear()
+
+            self._check_test_exprs()
             self._check_transforms()
-            self._to_keys_within_unit.update(self._to_keys_within_return_point)
+
+            for k, v in self._to_keys_within_return_point.items():
+                vs = self._to_keys_within_unit.get(k)
+                if vs is None:
+                    vs = []
+                    self._to_keys_within_unit[k] = vs
+                vs.append(v)
 
     def _check_transforms(self) -> None:
         for _ in self.walk_transforms():
-            closest_bundle_name = self._closest_bundle_names[self.to_key]
-            assert closest_bundle_name != ()
+            if not _field_path_has_prefix(self.to_key, self.bundle_name):
+                self.add_warning(
+                    self.transform.source_location,
+                    "the `to` key of transform should start with bundle name, "
+                    + f"but key {repr(self.transform.to)} is not like {repr(self.bundle.name+"[_*]")}",
+                )
+                continue
+
+            closest_bundle_name = self._key_related_bundle_names.closest.get(
+                self.to_key
+            )
+            assert closest_bundle_name is not None
             if self.bundle_name != closest_bundle_name:
                 self.add_warning(
                     self.transform.source_location,
@@ -419,9 +468,94 @@ class _NameChecker(_Checker):
                         )
 
 
-class _DependencyChecker(_Checker):
+class _BundleDependencyChecker(_Checker):
     __slots__ = (
-        "_closest_bundle_names",
+        "_key_related_bundle_names",
+        "_all_bundles",
+        "_required_bundle_names",
+        "_visited_bundle_names",
+    )
+
+    def __init__(
+        self,
+        components: list[Component],
+        key_related_bundle_names: _KeyRelatedBundleNames,
+        warnings: list[str],
+    ) -> None:
+        super().__init__(components, warnings)
+        self._key_related_bundle_names = key_related_bundle_names
+        self._all_bundles: dict[_FieldPath, Bundle] = {}
+        self._required_bundle_names: dict[_FieldPath, set[_FieldPath]] = {}
+        self._visited_bundle_names: set[_FieldPath] = set()
+
+    def check_components(self) -> None:
+        for _ in self.walk_components():
+            for _ in self.walk_bundles():
+                self._all_bundles[self.bundle_name] = self.bundle
+                self._required_bundle_names[self.bundle_name] = set()
+
+                for _ in self.walk_units():
+                    for _ in self.walk_return_points():
+                        for _ in self.walk_test_exprs():
+                            self._update_required_bundle_names(self.test_key)
+
+                        for _ in self.walk_transforms():
+                            for _ in self.walk_transform_operators():
+                                for from_key in self.from_keys:
+                                    self._update_required_bundle_names(from_key)
+
+        for _ in self.walk_components():
+            self._check_bundles()
+
+    def _update_required_bundle_names(self, key: _FieldPath) -> None:
+        for required_bundle_name in (
+            self._key_related_bundle_names.closest.get(key),
+            self._key_related_bundle_names.stub_query.get(key),
+        ):
+            if required_bundle_name is None:
+                continue
+            if required_bundle_name == self.bundle_name:
+                continue
+            self._required_bundle_names[self.bundle_name].add(required_bundle_name)
+
+    def _check_bundles(self) -> None:
+        bundle_name_stack: list[_FieldPath] = []
+
+        def visit_bundle(bundle_name: _FieldPath) -> None:
+            if bundle_name in self._visited_bundle_names:
+                return
+
+            try:
+                for i, bundle_name_2 in enumerate(bundle_name_stack):
+                    if bundle_name_2 == bundle_name:
+                        bundle_source_location = self._all_bundles[
+                            bundle_name
+                        ].source_location
+                        bundle_names = bundle_name_stack[i:]
+                        bundle_names.append(bundle_name)
+                        bundle_path = " => ".join(
+                            map(lambda x: "_".join(x), bundle_names)
+                        )
+                        self.add_warning(
+                            bundle_source_location,
+                            f"circular bundle dependency is detected: {bundle_path}",
+                        )
+                        return
+
+                bundle_name_stack.append(bundle_name)
+                for required_bundle_name in self._required_bundle_names[bundle_name]:
+                    visit_bundle(required_bundle_name)
+                bundle_name_stack.pop()
+            finally:
+                self._visited_bundle_names.add(bundle_name)
+
+        for _ in self.walk_bundles():
+            visit_bundle(self.bundle_name)
+
+
+class _UnitDependencyChecker(_Checker):
+    __slots__ = (
+        "_key_related_bundle_names",
         "_to_key_2_unit_index_within_bundle",
         "_checked_test_ids_within_unit",
     )
@@ -429,11 +563,11 @@ class _DependencyChecker(_Checker):
     def __init__(
         self,
         components: list[Component],
-        closest_bundle_names: dict[_FieldPath, _FieldPath],
+        key_related_bundle_names: _KeyRelatedBundleNames,
         warnings: list[str],
     ) -> None:
         super().__init__(components, warnings)
-        self._closest_bundle_names = closest_bundle_names
+        self._key_related_bundle_names = key_related_bundle_names
         self._to_key_2_unit_index_within_bundle: dict[_FieldPath, int] = {}
         self._checked_test_ids_within_unit: set[int] = set()
 
@@ -456,7 +590,10 @@ class _DependencyChecker(_Checker):
 
     def _check_transforms(self) -> None:
         for _ in self.walk_transforms():
-            if self.bundle_name != self._closest_bundle_names[self.to_key]:
+            closest_bundle_name = self._key_related_bundle_names.closest.get(
+                self.to_key, ()
+            )
+            if closest_bundle_name != self.bundle_name:
                 continue
 
             self._to_key_2_unit_index_within_bundle[self.to_key] = self.unit_index
@@ -468,7 +605,10 @@ class _DependencyChecker(_Checker):
                 if test_id in self._checked_test_ids_within_unit:
                     continue
 
-                if self._closest_bundle_names[self.test_key] != self.bundle_name:
+                closest_bundle_name = self._key_related_bundle_names.closest.get(
+                    self.test_key, ()
+                )
+                if closest_bundle_name != self.bundle_name:
                     continue
 
                 test_key_is_empty = True
@@ -500,7 +640,10 @@ class _DependencyChecker(_Checker):
     def _check_transform_operators(self) -> None:
         for i, _ in enumerate(self.walk_transform_operators()):
             for from_key in self.from_keys:
-                if self._closest_bundle_names[from_key] != self.bundle_name:
+                closest_bundle_name = self._key_related_bundle_names.closest.get(
+                    from_key, ()
+                )
+                if closest_bundle_name != self.bundle_name:
                     continue
 
                 test_key_is_empty = True
@@ -806,6 +949,16 @@ class _TypeChecker(_Checker):
                 )
             case "float32" | "float64":
                 return from_type in (
+                    "int",
+                    "int8",
+                    "int16",
+                    "int32",
+                    "int64",
+                    "uint",
+                    "uint8",
+                    "uint16",
+                    "uint32",
+                    "uint64",
                     "float32",
                     "float64",
                 )
@@ -847,5 +1000,4 @@ def _field_paths_are_overlap(
     return field_path_1[:n] == field_path_2[:n]
 
 
-_data_stub_field_name_pattern = re.compile(r"Stub[A-Z].*")
-_data_stub_query_field_name_pattern = re.compile(r"Stub[A-Z].*Query")
+_stub_field_name_pattern = re.compile(r"Stub[A-Z].*")

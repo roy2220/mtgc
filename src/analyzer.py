@@ -33,6 +33,7 @@ class Component:
     name: str
     alias: str
     bundles: list["Bundle"]
+    line_directives: dict[int, list[str]]
 
 
 @dataclass(kw_only=True)
@@ -105,6 +106,7 @@ class Analyzer:
             name=self._component_declaration.name,
             alias=self._component_declaration.alias,
             bundles=self._get_bundles(),
+            line_directives=self._component_declaration.line_directives,
         )
 
     def _get_bundles(self) -> list[Bundle]:

@@ -20,6 +20,7 @@ class ComponentDeclaration:
     name: str
     alias: str
     bundles: list["BundleDeclaration"]
+    line_directives: dict[int, list[str]]
 
 
 @dataclass(kw_only=True)
@@ -235,12 +236,14 @@ class Parser:
         "_scanner",
         "_buffered_tokens",
         "_key_registry",
+        "_line_directives",
     )
 
     def __init__(self, scanner: Scanner, key_registry: KeyRegistry) -> None:
         self._scanner = scanner
         self._key_registry = key_registry
         self._buffered_tokens: list[Token] = []
+        self._line_directives: dict[int, list[str]] = {}
 
     def get_component_declaration(self) -> ComponentDeclaration:
         self._import_files()
@@ -252,10 +255,25 @@ class Parser:
         return component_declaration
 
     def _do_get_token(self) -> Token:
+        line_directives: list[str] = []
+
         while True:
             t = self._scanner.get_token()
-            if t.type not in (TokenType.WHITESPACE, TokenType.COMMENT):
-                return t
+            match t.type:
+                case TokenType.WHITESPACE:
+                    continue
+                case TokenType.COMMENT:
+                    if t.data.startswith("//lint:"):
+                        line_directives.append(t.data[2:])
+                    continue
+                case _:
+                    if len(line_directives) >= 1:
+                        self._line_directives[t.source_location.line_number] = (
+                            line_directives
+                        )
+                        line_directives = []
+
+                    return t
 
     def _peek_token(self, pos: int) -> Token:
         assert pos >= 1
@@ -307,6 +325,7 @@ class Parser:
             name=component_name,
             alias=component_alias,
             bundles=bundle_declarations,
+            line_directives=self._line_directives,
         )
 
     def _import_files(self):
