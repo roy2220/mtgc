@@ -209,6 +209,102 @@ test_op_infos: dict[str, TestOpInfo] = {
         min_number_of_values=1,
         max_number_of_values=1,
     ),
+    "has_substring": TestOpInfo(
+        op="has_substring",
+        reverse_op="not_has_substring",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "not_has_substring": TestOpInfo(
+        op="not_has_substring",
+        reverse_op="has_substring",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "regex": TestOpInfo(
+        op="regex",
+        reverse_op="not_regex",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "not_regex": TestOpInfo(
+        op="not_regex",
+        reverse_op="regex",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "has_prefix": TestOpInfo(
+        op="has_prefix",
+        reverse_op="not_has_prefix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "not_has_prefix": TestOpInfo(
+        op="not_has_prefix",
+        reverse_op="has_prefix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "has_suffix": TestOpInfo(
+        op="has_suffix",
+        reverse_op="not_has_suffix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "not_has_suffix": TestOpInfo(
+        op="not_has_suffix",
+        reverse_op="has_suffix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_has_substring": TestOpInfo(
+        op="has_substring",
+        reverse_op="not_has_substring",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_not_has_substring": TestOpInfo(
+        op="not_has_substring",
+        reverse_op="has_substring",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_regex": TestOpInfo(
+        op="regex",
+        reverse_op="not_regex",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_not_regex": TestOpInfo(
+        op="not_regex",
+        reverse_op="regex",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_has_prefix": TestOpInfo(
+        op="has_prefix",
+        reverse_op="not_has_prefix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_not_has_prefix": TestOpInfo(
+        op="not_has_prefix",
+        reverse_op="has_prefix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_has_suffix": TestOpInfo(
+        op="has_suffix",
+        reverse_op="not_has_suffix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
+    "v_not_has_suffix": TestOpInfo(
+        op="not_has_suffix",
+        reverse_op="has_suffix",
+        min_number_of_values=1,
+        max_number_of_values=1,
+    ),
 }
 
 _custom_test_op_infos = {
