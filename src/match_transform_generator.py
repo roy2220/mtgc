@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 from typing import Any
 
 from .analyzer import AndExpr, Bundle, Component, OrExpr, ReturnPoint, TestExpr, Unit
@@ -52,7 +53,7 @@ class MatchTransformGenerator:
         source_code = self._dump_go_loader()
         go_loader_file_name = os.path.join(self._output_dir_name, "loader.go")
         with open(go_loader_file_name, "w") as f:
-            f.write("".join(source_code))
+            f.write(self._format_go_code("".join(source_code)))
 
     @classmethod
     def _dump_bundle(cls, bundle: Bundle, debug_log: list[str]) -> list[dict]:
@@ -229,44 +230,7 @@ import (
 
         source_code.append(
             """\
-
-var (
-"""
-        )
-        for component in self._components:
-            for bundle in component.bundles:
-                source_code.append(
-                    f"""\
-    Program_{bundle.name} Program
-"""
-                )
-        source_code.append(
-            """\
-)
-"""
-        )
-
-        source_code.append(
-            """\
-
-var baseBundleFileName2Program = map[string]*Program{
-"""
-        )
-        for component in self._components:
-            for bundle in component.bundles:
-                source_code.append(
-                    f"""\
-    "{bundle.name}.json": &Program_{bundle.name},
-"""
-                )
-        source_code.append(
-            """\
-}
-"""
-        )
-
-        source_code.append(
-            """\
+var xPrograms = map[string]xProgram{}
 
 func MustLoad(dictDirName string) {
     if err := Load(dictDirName); err != nil {
@@ -275,42 +239,63 @@ func MustLoad(dictDirName string) {
 }
 
 func Load(dictDirName string) error {
-    for baseBundleFileName, program := range baseBundleFileName2Program {
-        bundleFileName := filepath.Join(dictDirName, baseBundleFileName)
-
-        if err := func() error {
-            defer func() {
-                if r := recover(); r != nil {
-                    panic(fmt.Sprintf("panic detected during processing bundle file %q", bundleFileName))
-                }
-            }()
-
-            bundleData, err := os.ReadFile(bundleFileName)
-            if err != nil {
-                return fmt.Errorf("read bundle file %q: %v", bundleFileName, err)
-            }
-
-            var matchTransformList []MatchTransform
-            if err := json.Unmarshal(bundleData, &matchTransformList); err != nil {
-                return fmt.Errorf("unmarshal match transform list from bundle file %q: %v", bundleFileName, err)
-            }
-
-            *program, err = CompileMatchTransformList(matchTransformList)
-            if err != nil {
-                return fmt.Errorf("compile match transform list from bundle file %q: %v", bundleFileName, err)
-            }
-
-            return nil
-        }(); err != nil {
-            return err
-        }
-    }
-
-    return nil
-}
 """
         )
+
+        for component in self._components:
+            for bundle in component.bundles:
+                source_code.append(
+                    f"""\
+    if err := func() error {{
+        bundleFileName := filepath.Join(dictDirName, "{bundle.name}.json")
+
+        defer func() {{
+            if r := recover(); r != nil {{
+                panic(fmt.Sprintf("panic detected during processing bundle file %q", bundleFileName))
+            }}
+        }}()
+
+        bundleData, err := os.ReadFile(bundleFileName)
+        if err != nil {{
+            return fmt.Errorf("read bundle file %q: %v", bundleFileName, err)
+        }}
+
+        var matchTransformList []xMatchTransform
+        if err := json.Unmarshal(bundleData, &matchTransformList); err != nil {{
+            return fmt.Errorf("unmarshal match-transform list from bundle file %q: %v", bundleFileName, err)
+        }}
+
+        program, err := xCompileMatchTransformList(matchTransformList)
+        if err != nil {{
+            return fmt.Errorf("compile match-transform list from bundle file %q: %v", bundleFileName, err)
+        }}
+        xPrograms["{bundle.name}"] = program
+
+        return nil
+    }}(); err != nil {{
+        return err
+    }}
+
+"""
+                )
+
+        source_code.append(
+            """\
+    return nil
+}
+        """
+        )
         return source_code
+
+    @classmethod
+    def _format_go_code(cls, go_code: str) -> str:
+        try:
+            result = subprocess.run(
+                ["gofmt"], input=go_code, capture_output=True, text=True, check=True
+            )
+            return result.stdout
+        except Exception:
+            return go_code
 
 
 _dummy_and_expr = AndExpr(test_exprs=[], index=-1)
