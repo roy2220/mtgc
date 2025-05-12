@@ -30,20 +30,28 @@ def main() -> None:
         help="input dir containing mtg files",
     )
     parser.add_argument(
+        "-b",
+        metavar="DIR",
+        nargs=1,
+        type=str,
+        required=True,
+        help="output dir for bundle files",
+    )
+    parser.add_argument(
+        "-g",
+        metavar="DIR",
+        nargs=1,
+        type=str,
+        required=True,
+        help="output dir for go files",
+    )
+    parser.add_argument(
         "-e",
         metavar="FILE",
         nargs=1,
         type=str,
         required=True,
         help="output excel file",
-    )
-    parser.add_argument(
-        "-m",
-        metavar="DIR",
-        nargs=1,
-        type=str,
-        required=True,
-        help="output dir for match-transform files",
     )
     parser.add_argument(
         "-d",
@@ -55,9 +63,10 @@ def main() -> None:
     )
     namespace = parser.parse_args(sys.argv[1:])
     mtg_dir_name = namespace.DIR[0]
+    bundle_dir_name = namespace.b[0]
+    go_dir_name = namespace.g[0]
     excel_file_name = namespace.e[0]
     debug_log_file_name = namespace.d[0]
-    match_transform_dir_name = namespace.m[0]
 
     mtg_file_names = glob.glob(os.path.join(mtg_dir_name, "*.mtg"))
     mtg_file_names.sort()
@@ -69,8 +78,9 @@ def main() -> None:
         components, key_registry = _compile_mtg_files(
             mtg_dir_name=mtg_dir_name,
             mtg_file_names=mtg_file_names,
+            bundle_dir_name=bundle_dir_name,
+            go_dir_name=go_dir_name,
             excel_file_name=excel_file_name,
-            match_transform_dir_name=match_transform_dir_name,
             debug_log_file_name=debug_log_file_name,
         )
     except (ScannerError, AnalyzerError, ParserError) as e:
@@ -86,8 +96,9 @@ def _compile_mtg_files(
     *,
     mtg_dir_name: str,
     mtg_file_names: list[str],
+    bundle_dir_name: str,
+    go_dir_name: str,
     excel_file_name: str,
-    match_transform_dir_name: str,
     debug_log_file_name: str | None,
 ) -> tuple[list[Component], KeyRegistry]:
     custom_test_op_infos_file_name = os.path.join(
@@ -107,13 +118,13 @@ def _compile_mtg_files(
             analyzer = Analyzer(parser.get_component_declaration())
             components.append(analyzer.get_component())
 
-    excel_generator = ExcelGenerator(components, excel_file_name)
-    excel_generator.dump_components()
-
     match_transform_generator = MatchTransformGenerator(
-        components, match_transform_dir_name, debug_log_file_name
+        components, bundle_dir_name, go_dir_name, debug_log_file_name
     )
     match_transform_generator.dump_components()
+
+    excel_generator = ExcelGenerator(components, excel_file_name)
+    excel_generator.dump_components()
 
     return components, key_registry
 

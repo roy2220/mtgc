@@ -1,17 +1,17 @@
 import os
-from distutils.core import setup
+
+from setuptools import setup
 
 
 def parse_requirements() -> list[str]:
+    current_dir_name = os.path.dirname(os.path.realpath(__file__))
     requirements = []
-    with open(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "requirements.txt",
-        ),
-        "r",
-    ) as f:
-        requirements.append(f.readline().strip())
+    with open(os.path.join(current_dir_name, "requirements.txt"), "r") as f:
+        for line in f:
+            line = line.strip()
+            if line == "" or line.startswith("#"):
+                continue
+            requirements.append(line)
     return requirements
 
 
@@ -27,5 +27,5 @@ setup(
         ],
     },
     python_requires=">=3.12",
-    install_rquires=parse_requirements(),
+    install_requires=parse_requirements(),
 )
