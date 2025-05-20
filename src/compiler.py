@@ -119,7 +119,11 @@ def _compile_mtg_files(
             components.append(analyzer.get_component())
 
     match_transform_generator = MatchTransformGenerator(
-        components, bundle_dir_name, go_dir_name, debug_log_file_name
+        components,
+        bundle_dir_name,
+        go_dir_name,
+        debug_log_file_name,
+        key_registry,
     )
     match_transform_generator.dump_components()
 

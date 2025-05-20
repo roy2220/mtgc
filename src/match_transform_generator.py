@@ -4,6 +4,7 @@ import subprocess
 from typing import Any
 
 from .analyzer import AndExpr, Bundle, Component, OrExpr, ReturnPoint, TestExpr, Unit
+from .key_registry import KeyRegistry
 from .test_op_infos import replace_with_real_op
 
 
@@ -13,6 +14,8 @@ class MatchTransformGenerator:
         "_bundle_dir_name",
         "_go_dir_name",
         "_debug_log_file_name",
+        "_trace_point_ids_key_index",
+        "_next_trace_point_id",
     )
 
     def __init__(
@@ -21,11 +24,17 @@ class MatchTransformGenerator:
         bundle_dir_name: str,
         go_dir_name: str,
         debug_log_file_name: str | None,
+        key_registry: KeyRegistry,
     ) -> None:
         self._components = components
         self._bundle_dir_name = bundle_dir_name
         self._go_dir_name = go_dir_name
         self._debug_log_file_name = debug_log_file_name
+        if (key_info := key_registry.lookup_key("TracePointIds")) is None:
+            self._trace_point_ids_key_index = 0
+        else:
+            self._trace_point_ids_key_index = key_info.index
+        self._next_trace_point_id = 1
 
     def dump_components(self) -> None:
         bundle_file_names: set[str] = set()
@@ -58,19 +67,17 @@ class MatchTransformGenerator:
         with open(go_loader_file_name, "w") as f:
             f.write(self._format_go_code("".join(source_code)))
 
-    @classmethod
-    def _dump_bundle(cls, bundle: Bundle, debug_log: list[str]) -> list[dict]:
+    def _dump_bundle(self, bundle: Bundle, debug_log: list[str]) -> list[dict]:
         unit_list: list[dict] = []
 
         for unit in bundle.units:
             unit_list.append(
-                cls._dump_unit(unit, debug_log),
+                self._dump_unit(unit, debug_log),
             )
 
         return unit_list
 
-    @classmethod
-    def _dump_unit(cls, unit: Unit, debug_log: list[str]) -> dict:
+    def _dump_unit(self, unit: Unit, debug_log: list[str]) -> dict:
         transform_list: list[dict] = []
         match_list: list[dict] = []
 
@@ -83,7 +90,9 @@ class MatchTransformGenerator:
         original_and_expr_index = 0
         original_and_expr_indexes = number_of_and_exprs * [-1]
         for return_point_index, return_point in enumerate(unit.return_points):
-            transform_list.append(cls._dump_transform(return_point_index, return_point))
+            transform_list.append(
+                self._dump_transform(return_point_index, return_point)
+            )
 
             for and_expr in return_point.or_expr.and_exprs:
                 all_and_exprs[and_expr.index] = and_expr
@@ -91,8 +100,10 @@ class MatchTransformGenerator:
                 original_and_expr_indexes[and_expr.index] = original_and_expr_index
                 original_and_expr_index += 1
 
+        trace_point_id = self._next_trace_point_id  # 备份
+
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
-            match_list.append(cls._dump_match(and_expr, return_point_index))
+            match_list.append(self._dump_match(and_expr, return_point_index))
 
         unit_2 = {
             "__unit_name__": unit.name,
@@ -107,20 +118,42 @@ class MatchTransformGenerator:
         }
 
         debug_log.append(f"========== {unit.name} ==========")
+
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             condition_tags: list[str] = []
+            miss_final_trace_point_id = False
+
             for test_expr in and_expr.test_exprs:
-                if test_expr.is_negative:
-                    condition_tag = "❌ " + test_expr.fact
+                if test_expr.is_merged:
+                    continue
+
+                if len(test_expr.merged_children) == 0:
+                    condition_tag = make_condition_tag(test_expr)
                 else:
-                    condition_tag = "✅ " + test_expr.fact
+                    condition_tag = "{ " + make_condition_tag(test_expr)
+                    for child_test_expr in test_expr.merged_children:
+                        condition_tag += "; " + make_condition_tag(child_test_expr)
+                    condition_tag += " }"
+
                 if test_expr.is_dismissed:
-                    condition_tag = "\u0336".join(condition_tag) + "\u0336"
+                    condition_tag = "~~" + condition_tag
+                else:
+                    if self._trace_point_ids_key_index >= 1:
+                        condition_tag = f"[{trace_point_id}] {condition_tag}"
+                        trace_point_id += 1
+                        miss_final_trace_point_id = True
+
                 condition_tags.append(condition_tag)
+
+            if miss_final_trace_point_id:
+                condition_tags[-1] += f" [{trace_point_id}]"
+                trace_point_id += 1
+
             debug_log.append(
                 f"M{original_and_expr_indexes[and_expr.index]} => T{return_point_index}: "
                 + "; ".join(condition_tags)
             )
+
         debug_log.append("")
 
         return unit_2
@@ -164,15 +197,9 @@ class MatchTransformGenerator:
         }
         return transform
 
-    @classmethod
-    def _dump_match(cls, and_expr: AndExpr, return_point_index: int) -> dict:
-        def make_condition_tag(test_expr: TestExpr) -> str:
-            if test_expr.is_negative:
-                return "❌ " + test_expr.fact
-            else:
-                return "✅ " + test_expr.fact
-
+    def _dump_match(self, and_expr: AndExpr, return_point_index: int) -> dict:
         condition_list: list[dict] = []
+        miss_final_trace_point_id = False
 
         for test_expr in and_expr.test_exprs:
             if test_expr.is_dismissed:
@@ -200,7 +227,31 @@ class MatchTransformGenerator:
             }
             if test_expr.values == test_expr.underlying_values:
                 condition.pop("__named_values__")
+
+            if self._trace_point_ids_key_index >= 1:
+                condition_list.append(
+                    {
+                        "__comment__": f"trace point {self._next_trace_point_id}",
+                        "key": self._trace_point_ids_key_index,
+                        "values": [str(self._next_trace_point_id)],
+                        "operator": "MatchOp_X/TracePoint/True",
+                    }
+                )
+                self._next_trace_point_id += 1
+                miss_final_trace_point_id = True
+
             condition_list.append(condition)
+
+        if miss_final_trace_point_id:
+            condition_list.append(
+                {
+                    "__comment__": f"trace point {self._next_trace_point_id}",
+                    "key": self._trace_point_ids_key_index,
+                    "values": [str(self._next_trace_point_id)],
+                    "operator": "MatchOp_X/TracePoint/True",
+                }
+            )
+            self._next_trace_point_id += 1
 
         match = {
             # "has_next": False,
@@ -280,3 +331,10 @@ func LoadProgram_{bundle.name}(bundleDirName string) (xProgram, error) {{
 
 
 _dummy_and_expr = AndExpr(test_exprs=[], index=-1)
+
+
+def make_condition_tag(test_expr: TestExpr) -> str:
+    if test_expr.is_negative:
+        return "❌ " + test_expr.fact
+    else:
+        return "✅ " + test_expr.fact
