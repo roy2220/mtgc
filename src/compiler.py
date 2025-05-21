@@ -66,7 +66,7 @@ def main() -> None:
     bundle_dir_name = namespace.b[0]
     go_dir_name = namespace.g[0]
     excel_file_name = namespace.e[0]
-    debug_log_file_name = namespace.d[0]
+    debug_map_file_name = namespace.d[0]
 
     mtg_file_names = glob.glob(os.path.join(mtg_dir_name, "*.mtg"))
     mtg_file_names.sort()
@@ -81,7 +81,7 @@ def main() -> None:
             bundle_dir_name=bundle_dir_name,
             go_dir_name=go_dir_name,
             excel_file_name=excel_file_name,
-            debug_log_file_name=debug_log_file_name,
+            debug_map_file_name=debug_map_file_name,
         )
     except (ScannerError, AnalyzerError, ParserError) as e:
         sys.stderr.write(_error_mark + str(e) + "\n")
@@ -99,7 +99,7 @@ def _compile_mtg_files(
     bundle_dir_name: str,
     go_dir_name: str,
     excel_file_name: str,
-    debug_log_file_name: str | None,
+    debug_map_file_name: str | None,
 ) -> tuple[list[Component], KeyRegistry]:
     custom_test_op_infos_file_name = os.path.join(
         mtg_dir_name, ".custom_test_op_infos.json"
@@ -122,7 +122,7 @@ def _compile_mtg_files(
         components,
         bundle_dir_name,
         go_dir_name,
-        debug_log_file_name,
+        debug_map_file_name,
         key_registry,
     )
     match_transform_generator.dump_components()

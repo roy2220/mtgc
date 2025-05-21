@@ -13,7 +13,7 @@ class MatchTransformGenerator:
         "_components",
         "_bundle_dir_name",
         "_go_dir_name",
-        "_debug_log_file_name",
+        "_debug_map_file_name",
         "_trace_point_ids_key_index",
         "_next_trace_point_id",
     )
@@ -23,13 +23,13 @@ class MatchTransformGenerator:
         components: list[Component],
         bundle_dir_name: str,
         go_dir_name: str,
-        debug_log_file_name: str | None,
+        debug_map_file_name: str | None,
         key_registry: KeyRegistry,
     ) -> None:
         self._components = components
         self._bundle_dir_name = bundle_dir_name
         self._go_dir_name = go_dir_name
-        self._debug_log_file_name = debug_log_file_name
+        self._debug_map_file_name = debug_map_file_name
         if (key_info := key_registry.lookup_key("TracePointIds")) is None:
             self._trace_point_ids_key_index = 0
         else:
@@ -38,7 +38,7 @@ class MatchTransformGenerator:
 
     def dump_components(self) -> None:
         bundle_file_names: set[str] = set()
-        debug_log: list[str] = []
+        debug_map: list[str] = []
 
         for component in self._components:
             for bundle in component.bundles:
@@ -51,33 +51,33 @@ class MatchTransformGenerator:
                     )
 
                 bundle_data = json.dumps(
-                    self._dump_bundle(bundle, debug_log),
+                    self._dump_bundle(bundle, debug_map),
                     ensure_ascii=False,
                     indent=2,
                 )
                 with open(bundle_file_name, "w") as f:
                     f.write(bundle_data)
 
-        if self._debug_log_file_name is not None:
-            with open(self._debug_log_file_name, "w") as f:
-                f.write("\n".join(debug_log))
+        if self._debug_map_file_name is not None:
+            with open(self._debug_map_file_name, "w") as f:
+                f.write("\n".join(debug_map))
 
         source_code = self._dump_go_loader()
         go_loader_file_name = os.path.join(self._go_dir_name, "loader.go")
         with open(go_loader_file_name, "w") as f:
             f.write(self._format_go_code("".join(source_code)))
 
-    def _dump_bundle(self, bundle: Bundle, debug_log: list[str]) -> list[dict]:
+    def _dump_bundle(self, bundle: Bundle, debug_map: list[str]) -> list[dict]:
         unit_list: list[dict] = []
 
         for unit in bundle.units:
             unit_list.append(
-                self._dump_unit(unit, debug_log),
+                self._dump_unit(unit, debug_map),
             )
 
         return unit_list
 
-    def _dump_unit(self, unit: Unit, debug_log: list[str]) -> dict:
+    def _dump_unit(self, unit: Unit, debug_map: list[str]) -> dict:
         transform_list: list[dict] = []
         match_list: list[dict] = []
 
@@ -117,7 +117,7 @@ class MatchTransformGenerator:
             "target_values": transform_list,
         }
 
-        debug_log.append(f"========== {unit.name} ==========")
+        debug_map.append(f"========== {unit.name} ==========")
 
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             condition_tags: list[str] = []
@@ -149,12 +149,12 @@ class MatchTransformGenerator:
                 condition_tags[-1] += f" [{trace_point_id}]"
                 trace_point_id += 1
 
-            debug_log.append(
+            debug_map.append(
                 f"M{original_and_expr_indexes[and_expr.index]} => T{return_point_index}: "
                 + "; ".join(condition_tags)
             )
 
-        debug_log.append("")
+        debug_map.append("")
 
         return unit_2
 

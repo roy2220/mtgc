@@ -678,7 +678,6 @@ class _UnitDependencyChecker(_Checker):
 class _TypeChecker(_Checker):
     _integer_value_pattern = re.compile(r"-?[0-9]+")
     _float_value_pattern = re.compile(r"-?[0-9]+(\.[0-9]+)?")
-    _nullable_type_pattern = re.compile(r"(\*|\[\]|map\[.*\]).*")
     _type_with_length_pattern = re.compile(r"(string|\[\]|map\[.*\]).*")
 
     __slots__ = (
@@ -879,7 +878,7 @@ class _TypeChecker(_Checker):
     @classmethod
     def _check_value_compatibility(cls, value: str | None, to_type: str) -> bool:
         if value is None:
-            return cls._nullable_type_pattern.fullmatch(to_type) is not None
+            return True  # 任何值都有空值
         match to_type:
             case "string":
                 return True
