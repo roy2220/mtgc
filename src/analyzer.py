@@ -243,7 +243,7 @@ class _P1Analyzer(Visitor):
 
         for else_if_clause in if_statement.else_if_clauses:
 
-            def set_link_2(s: Statement) -> None:
+            def set_link_2(s: Statement, else_if_clause=else_if_clause) -> None:
                 else_if_clause.body_link = s
 
             self._link_setter_stack.append(set_link_2)
@@ -258,7 +258,7 @@ class _P1Analyzer(Visitor):
     def visit_switch_statement(self, switch_statement: SwitchStatement) -> None:
         for case_clause in switch_statement.case_clauses:
 
-            def set_link_1(s: Statement) -> None:
+            def set_link_1(s: Statement, case_clause=case_clause) -> None:
                 case_clause.body_link = s
 
             self._link_setter_stack.append(set_link_1)
