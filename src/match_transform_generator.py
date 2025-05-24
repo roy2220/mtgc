@@ -1,3 +1,4 @@
+import binascii
 import json
 import os
 import subprocess
@@ -11,60 +12,60 @@ from .test_op_infos import replace_with_real_op
 class MatchTransformGenerator:
     __slots__ = (
         "_components",
-        "_bundle_dir_name",
-        "_go_dir_name",
+        "_program_file_name",
+        "_go_program_loader_file_name",
         "_debug_map_file_name",
         "_trace_point_ids_key_index",
         "_next_trace_point_id",
+        "_unit_id_generator",
     )
 
     def __init__(
         self,
         components: list[Component],
-        bundle_dir_name: str,
-        go_dir_name: str,
+        program_file_name: str,
+        go_program_loader_file_name: str,
         debug_map_file_name: str | None,
         key_registry: KeyRegistry,
     ) -> None:
         self._components = components
-        self._bundle_dir_name = bundle_dir_name
-        self._go_dir_name = go_dir_name
+        self._program_file_name = program_file_name
+        self._go_program_loader_file_name = go_program_loader_file_name
         self._debug_map_file_name = debug_map_file_name
-        if (key_info := key_registry.lookup_key("TracePointIds")) is None:
-            self._trace_point_ids_key_index = 0
-        else:
+        if (
+            key_info := key_registry.lookup_key("TracePointIds")
+        ) is not None and key_info.type == "*[]int32":
             self._trace_point_ids_key_index = key_info.index
-        self._next_trace_point_id = 1
+        else:
+            self._trace_point_ids_key_index = 0
+        self._next_trace_point_id = 0
+        self._unit_id_generator = _UnitIdGenerator()
 
     def dump_components(self) -> None:
-        bundle_file_names: set[str] = set()
+        program: dict[str, list[dict]] = {}
         debug_map: list[str] = []
 
         for component in self._components:
             for bundle in component.bundles:
-                bundle_file_name = os.path.join(
-                    self._bundle_dir_name, bundle.name + ".json"
-                )
-                if bundle_file_name in bundle_file_names:
-                    raise ValueError(
-                        f"output file {repr(bundle_file_name)} name conflicts"
-                    )
+                if bundle.name in program.keys():
+                    raise ValueError(f"bundle name {repr(bundle.name)} conflicts")
+                program[bundle.name] = self._dump_bundle(bundle, debug_map)
 
-                bundle_data = json.dumps(
-                    self._dump_bundle(bundle, debug_map),
+        with open(self._program_file_name, "w") as f:
+            f.write(
+                json.dumps(
+                    program,
                     ensure_ascii=False,
                     indent=2,
                 )
-                with open(bundle_file_name, "w") as f:
-                    f.write(bundle_data)
+            )
 
         if self._debug_map_file_name is not None:
             with open(self._debug_map_file_name, "w") as f:
                 f.write("\n".join(debug_map))
 
-        source_code = self._dump_go_loader()
-        go_loader_file_name = os.path.join(self._go_dir_name, "loader.go")
-        with open(go_loader_file_name, "w") as f:
+        source_code = self._dump_go_program_loader()
+        with open(self._go_program_loader_file_name, "w") as f:
             f.write(self._format_go_code("".join(source_code)))
 
     def _dump_bundle(self, bundle: Bundle, debug_map: list[str]) -> list[dict]:
@@ -100,7 +101,8 @@ class MatchTransformGenerator:
                 original_and_expr_indexes[and_expr.index] = original_and_expr_index
                 original_and_expr_index += 1
 
-        trace_point_id = self._next_trace_point_id  # 备份
+        unit_id = self._unit_id_generator.get_unit_id(unit.name)
+        self._next_trace_point_id = unit_id * 10000 + 1
 
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             match_list.append(self._dump_match(and_expr, return_point_index))
@@ -118,10 +120,10 @@ class MatchTransformGenerator:
         }
 
         debug_map.append(f"========== {unit.name} ==========")
+        self._next_trace_point_id = unit_id * 10000 + 1
 
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
             condition_tags: list[str] = []
-            miss_final_trace_point_id = False
 
             for test_expr in and_expr.test_exprs:
                 if test_expr.is_merged:
@@ -139,15 +141,17 @@ class MatchTransformGenerator:
                     condition_tag = "~~" + condition_tag
                 else:
                     if self._trace_point_ids_key_index >= 1:
-                        condition_tag = f"[{trace_point_id}] {condition_tag}"
-                        trace_point_id += 1
-                        miss_final_trace_point_id = True
+                        condition_tag = f"[{self._next_trace_point_id}] {condition_tag}"
+                        self._next_trace_point_id += 1
 
                 condition_tags.append(condition_tag)
 
-            if miss_final_trace_point_id:
-                condition_tags[-1] += f" [{trace_point_id}]"
-                trace_point_id += 1
+            if self._trace_point_ids_key_index >= 1:
+                if len(condition_tags) == 0:
+                    condition_tags.append(f"[{self._next_trace_point_id}]")
+                else:
+                    condition_tags[-1] += f" [{self._next_trace_point_id}]"
+                self._next_trace_point_id += 1
 
             debug_map.append(
                 f"M{original_and_expr_indexes[and_expr.index]} => T{return_point_index}: "
@@ -199,7 +203,6 @@ class MatchTransformGenerator:
 
     def _dump_match(self, and_expr: AndExpr, return_point_index: int) -> dict:
         condition_list: list[dict] = []
-        miss_final_trace_point_id = False
 
         for test_expr in and_expr.test_exprs:
             if test_expr.is_dismissed:
@@ -238,11 +241,10 @@ class MatchTransformGenerator:
                     }
                 )
                 self._next_trace_point_id += 1
-                miss_final_trace_point_id = True
 
             condition_list.append(condition)
 
-        if miss_final_trace_point_id:
+        if self._trace_point_ids_key_index >= 1:
             condition_list.append(
                 {
                     "__comment__": f"trace point {self._next_trace_point_id}",
@@ -264,10 +266,12 @@ class MatchTransformGenerator:
         }
         return match
 
-    def _dump_go_loader(self) -> list[str]:
+    def _dump_go_program_loader(self) -> list[str]:
         source_code: list[str] = []
 
-        package_name = os.path.basename(os.path.abspath(self._go_dir_name))
+        package_name = os.path.basename(
+            os.path.dirname(os.path.abspath(self._go_program_loader_file_name))
+        )
         source_code.append(
             f"""\
 // Code generated by mtgc; DO NOT EDIT.
@@ -277,45 +281,67 @@ import (
     "encoding/json"
     "fmt"
     "os"
-    "path/filepath"
 )
 
+type Program struct {{
 """
         )
+        for component in self._components:
+            for bundle in component.bundles:
+                source_code.append(
+                    f"""\
+    {bundle.name} xFunction
+"""
+                )
 
+        source_code.append(
+            """\
+}
+
+func LoadProgram(
+    programFileName string,
+    compileBundle func(xBundle) (xFunction, error),
+) (*Program, error) {
+    data, err := os.ReadFile(programFileName)
+    if err != nil {
+        return nil, fmt.Errorf("read file %q: %v", programFileName, err)
+    }
+
+    var rawProgram map[string]xBundle
+    if err := json.Unmarshal(data, &rawProgram); err != nil {
+        return nil, fmt.Errorf("unmarshal program from file %q: %v", programFileName, err)
+    }
+
+    var program Program
+
+    var bundleName string
+    defer func() {
+        if r := recover(); r != nil {
+            panic(fmt.Sprintf("panic detected during compiling bundle %q: %v", bundleName, r))
+        }
+    }()
+"""
+        )
         for component in self._components:
             for bundle in component.bundles:
                 source_code.append(
                     f"""\
 
-func LoadProgram_{bundle.name}(bundleDirName string) (xProgram, error) {{
-    bundleFileName := filepath.Join(bundleDirName, "{bundle.name}.json")
-
-    defer func() {{
-        if r := recover(); r != nil {{
-            panic(fmt.Sprintf("panic detected during processing bundle file %q", bundleFileName))
-        }}
-    }}()
-
-    bundleData, err := os.ReadFile(bundleFileName)
+    bundleName = "{bundle.name}"
+    program.{bundle.name}, err = compileBundle(rawProgram[bundleName])
     if err != nil {{
-        return nil, fmt.Errorf("read bundle file %q: %v", bundleFileName, err)
+        return nil, fmt.Errorf("compile bundle %q: %v", bundleName, err)
     }}
-
-    var bundle xBundle
-    if err := json.Unmarshal(bundleData, &bundle); err != nil {{
-        return nil, fmt.Errorf("unmarshal bundle from file %q: %v", bundleFileName, err)
-    }}
-
-    program, err := xCompileBundle(bundle)
-    if err != nil {{
-        return nil, fmt.Errorf("compile bundle from file %q: %v", bundleFileName, err)
-    }}
-
-    return program, nil
-}}
 """
                 )
+
+        source_code.append(
+            """\
+
+    return &program, nil
+}
+"""
+        )
 
         return source_code
 
@@ -328,6 +354,31 @@ func LoadProgram_{bundle.name}(bundleDirName string) (xProgram, error) {{
             return result.stdout
         except Exception:
             return go_code
+
+
+class _UnitIdGenerator:
+    __slots__ = (
+        "_unit_name_2_id",
+        "_unit_ids",
+    )
+
+    _MAX_NUMBER_OF_UNITS = 9999
+
+    def __init__(self) -> None:
+        self._unit_name_2_id: dict[str, int] = {}
+        self._unit_ids: set[int] = set()
+
+    def get_unit_id(self, unit_name: str) -> int:
+        unit_id = self._unit_name_2_id.get(unit_name)
+        if unit_id is None:
+            unit_id = 1 + binascii.crc32(unit_name.encode()) % self._MAX_NUMBER_OF_UNITS
+            if len(self._unit_ids) == self._MAX_NUMBER_OF_UNITS:
+                raise ValueError("too many units")
+            while unit_id in self._unit_ids:
+                unit_id = 1 + (unit_id + 1) % self._MAX_NUMBER_OF_UNITS
+            self._unit_name_2_id[unit_name] = unit_id
+            self._unit_ids.add(unit_id)
+        return unit_id
 
 
 _dummy_and_expr = AndExpr(test_exprs=[], index=-1)

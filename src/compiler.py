@@ -30,12 +30,12 @@ def main() -> None:
         help="input dir containing mtg files",
     )
     parser.add_argument(
-        "-b",
+        "-p",
         metavar="DIR",
         nargs=1,
         type=str,
         required=True,
-        help="output dir for bundle files",
+        help="output program file",
     )
     parser.add_argument(
         "-g",
@@ -43,7 +43,7 @@ def main() -> None:
         nargs=1,
         type=str,
         required=True,
-        help="output dir for go files",
+        help="output go program loader file",
     )
     parser.add_argument(
         "-e",
@@ -59,12 +59,12 @@ def main() -> None:
         nargs=1,
         type=str,
         required=False,
-        help="output debug log file",
+        help="output debug map file",
     )
     namespace = parser.parse_args(sys.argv[1:])
     mtg_dir_name = namespace.DIR[0]
-    bundle_dir_name = namespace.b[0]
-    go_dir_name = namespace.g[0]
+    program_file_name = namespace.p[0]
+    go_program_loader_file_name = namespace.g[0]
     excel_file_name = namespace.e[0]
     debug_map_file_name = namespace.d[0]
 
@@ -78,8 +78,8 @@ def main() -> None:
         components, key_registry = _compile_mtg_files(
             mtg_dir_name=mtg_dir_name,
             mtg_file_names=mtg_file_names,
-            bundle_dir_name=bundle_dir_name,
-            go_dir_name=go_dir_name,
+            program_file_name=program_file_name,
+            go_program_loader_file_name=go_program_loader_file_name,
             excel_file_name=excel_file_name,
             debug_map_file_name=debug_map_file_name,
         )
@@ -96,8 +96,8 @@ def _compile_mtg_files(
     *,
     mtg_dir_name: str,
     mtg_file_names: list[str],
-    bundle_dir_name: str,
-    go_dir_name: str,
+    program_file_name: str,
+    go_program_loader_file_name: str,
     excel_file_name: str,
     debug_map_file_name: str | None,
 ) -> tuple[list[Component], KeyRegistry]:
@@ -120,8 +120,8 @@ def _compile_mtg_files(
 
     match_transform_generator = MatchTransformGenerator(
         components,
-        bundle_dir_name,
-        go_dir_name,
+        program_file_name,
+        go_program_loader_file_name,
         debug_map_file_name,
         key_registry,
     )
