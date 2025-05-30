@@ -303,14 +303,14 @@ type Program struct {{
 
 func LoadProgram(
     programFileName string,
-    compileBundle func(xBundle) (xFunction, error),
+    compileMatchTransforms func([]xMatchTransform) (xFunction, error),
 ) (*Program, error) {
     data, err := os.ReadFile(programFileName)
     if err != nil {
         return nil, fmt.Errorf("read file %q: %v", programFileName, err)
     }
 
-    var rawProgram map[string]xBundle
+    var rawProgram map[string][]xMatchTransform
     if err := json.Unmarshal(data, &rawProgram); err != nil {
         return nil, fmt.Errorf("unmarshal program from file %q: %v", programFileName, err)
     }
@@ -331,9 +331,9 @@ func LoadProgram(
                     f"""\
 
     bundleName = "{bundle.name}"
-    program.{bundle.name}, err = compileBundle(rawProgram[bundleName])
+    program.{bundle.name}, err = compileMatchTransforms(rawProgram[bundleName])
     if err != nil {{
-        return nil, fmt.Errorf("compile bundle %q: %v", bundleName, err)
+        return nil, fmt.Errorf("compile match-transforms from bundle %q: %v", bundleName, err)
     }}
 """
                 )

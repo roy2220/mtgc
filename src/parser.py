@@ -337,13 +337,13 @@ class Parser:
             TokenType.IMPORT_KEYWORD
         ).source_location.file_name
         current_dir_name = os.path.dirname(current_file_name)
-        warehouse_dir_name, source_location = self._get_string_with_source_location()
-        warehouse_dir_name = os.path.join(current_dir_name, warehouse_dir_name)
+        symbol_table_dir_name, source_location = self._get_string_with_source_location()
+        symbol_table_dir_name = os.path.join(current_dir_name, symbol_table_dir_name)
 
         try:
-            self._key_registry.load_keys_from_warehouse(warehouse_dir_name)
+            self._key_registry.load_keys_from_symbol_table(symbol_table_dir_name)
         except Exception as e:
-            raise ImportFailureError(source_location, warehouse_dir_name, e)
+            raise ImportFailureError(source_location, symbol_table_dir_name, e)
 
     def _get_bundle_declarations(self) -> list[BundleDeclaration]:
         bundle_declarations: list[BundleDeclaration] = []

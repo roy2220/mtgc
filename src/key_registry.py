@@ -15,25 +15,25 @@ class KeyInfo:
 
 class KeyRegistry:
     __slots__ = (
-        "_processed_warehouse_dir_names",
+        "_processed_symbol_table_dir_names",
         "_key_infos",
     )
 
     def __init__(self) -> None:
-        self._processed_warehouse_dir_names: set[str] = set()
+        self._processed_symbol_table_dir_names: set[str] = set()
         self._key_infos: dict[str, KeyInfo] = {}
 
-    def load_keys_from_warehouse(self, warehouse_dir_name: str) -> None:
-        if warehouse_dir_name in self._processed_warehouse_dir_names:
+    def load_keys_from_symbol_table(self, symbol_table_dir_name: str) -> None:
+        if symbol_table_dir_name in self._processed_symbol_table_dir_names:
             return
 
-        self._parse_symbol_file(warehouse_dir_name)
-        self._parse_symbol_table_file(warehouse_dir_name)
+        self._parse_symbol_file(symbol_table_dir_name)
+        self._parse_symbol_table_file(symbol_table_dir_name)
 
-        self._processed_warehouse_dir_names.add(warehouse_dir_name)
+        self._processed_symbol_table_dir_names.add(symbol_table_dir_name)
 
-    def _parse_symbol_file(self, warehouse_dir_name: str) -> None:
-        symbol_file_name = os.path.join(warehouse_dir_name, "symbol.json")
+    def _parse_symbol_file(self, symbol_table_dir_name: str) -> None:
+        symbol_file_name = os.path.join(symbol_table_dir_name, "symbol.json")
 
         with open(symbol_file_name, "r") as f:
             key_info_list = json.load(f)
@@ -46,7 +46,7 @@ class KeyRegistry:
                 key=key, index=key_info["Idx"], type=key_info["Type"]
             )
 
-    def _parse_symbol_table_file(self, warehouse_dir_name: str) -> None:
+    def _parse_symbol_table_file(self, symbol_table_dir_name: str) -> None:
         # we love hacking
 
         def get_underlying_type(s: str, i: int) -> tuple[str | None, int]:
@@ -106,7 +106,7 @@ class KeyRegistry:
                 if key_info is not None:
                     yield key_info
 
-        symbol_table_file_name = os.path.join(warehouse_dir_name, "symbol_table.go")
+        symbol_table_file_name = os.path.join(symbol_table_dir_name, "symbol_table.go")
         with open(symbol_table_file_name, "r") as f:
             source_code = f.read()
 
