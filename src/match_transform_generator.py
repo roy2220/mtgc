@@ -92,7 +92,7 @@ class MatchTransformGenerator:
         original_and_expr_indexes = number_of_and_exprs * [-1]
         for return_point_index, return_point in enumerate(unit.return_points):
             transform_list.append(
-                self._dump_transform(return_point_index, return_point)
+                self._dump_transform(return_point, unit.name, return_point_index)
             )
 
             for and_expr in return_point.or_expr.and_exprs:
@@ -105,7 +105,7 @@ class MatchTransformGenerator:
         self._next_trace_point_id = unit_id * 10000 + 1
 
         for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
-            match_list.append(self._dump_match(and_expr, return_point_index))
+            match_list.append(self._dump_match(and_expr, unit.name, return_point_index))
 
         unit_2 = {
             "__unit_name__": unit.name,
@@ -164,7 +164,7 @@ class MatchTransformGenerator:
 
     @classmethod
     def _dump_transform(
-        cls, return_point_index: int, return_point: ReturnPoint
+        cls, return_point: ReturnPoint, unit_name: str, return_point_index: int
     ) -> dict:
         transforms: list[dict] = []
 
@@ -196,12 +196,14 @@ class MatchTransformGenerator:
             transforms.append(transform_2)
 
         transform = {
-            "__target_value_index__": return_point_index,
+            "__anchor__": f"{unit_name}_{return_point_index}",
             "items": transforms,
         }
         return transform
 
-    def _dump_match(self, and_expr: AndExpr, return_point_index: int) -> dict:
+    def _dump_match(
+        self, and_expr: AndExpr, unit_name: str, return_point_index: int
+    ) -> dict:
         condition_list: list[dict] = []
 
         for test_expr in and_expr.test_exprs:
@@ -262,6 +264,7 @@ class MatchTransformGenerator:
                 "condition": condition_list,
                 "condition_type": 0,  # AND
             },
+            "__target_value_anchor__": f"{unit_name}_{return_point_index}",
             "target_value_index": return_point_index,
         }
         return match
