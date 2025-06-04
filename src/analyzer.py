@@ -1102,6 +1102,10 @@ class _P3Analyzer:
                     if j == i or test_expr_y.is_merged:
                         continue
 
+                    if test_expr_x.is_dismissed != test_expr_y.is_dismissed:
+                        # only merge test exprs that are both or neither dismissed
+                        continue
+
                     if (test_expr_y.is_negative, test_expr_y.op) in (
                         (
                             test_expr_x.is_negative,
