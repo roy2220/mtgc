@@ -9,7 +9,7 @@ from xlsxwriter.utility import xl_rowcol_to_cell
 from xlsxwriter.worksheet import Format
 
 from .analyzer import AndExpr, Bundle, Component, ReturnPoint, TestExpr, Transform, Unit
-from .test_op_infos import replace_with_real_op
+from .test_op_infos import is_v_op, replace_with_real_op
 
 
 @dataclass(kw_only=True)
@@ -724,12 +724,14 @@ class ExcelGenerator:
     def _reference_extra_symbols_in_test_expr(
         self, test_expr: TestExpr, column_index: int
     ) -> None:
-        if test_expr.op.startswith("v_"):
-            for symbol_key in test_expr.values:
+        if is_v_op(test_expr.op):
+            for value in test_expr.values:
+                if value.startswith("^"):
+                    continue
                 self._symbol_references.append(
                     _SymbolReference(
                         kind=_SymbolReferenceKind.WHEN_EXTRA,
-                        symbol_key=symbol_key,
+                        symbol_key=value,
                         worksheet_name=self._worksheet_name,
                         loc=(self._row_index, column_index),
                         business_unit_name=self._business_unit_name,

@@ -5,6 +5,7 @@ from typing import Iterator
 from .analyzer import Bundle, Component
 from .key_registry import KeyRegistry
 from .scanner import SourceLocation
+from .test_op_infos import is_v_op
 
 type _FieldPath = tuple[str, ...]
 
@@ -375,7 +376,7 @@ class _NameChecker(_Checker):
                     else:
                         for source_location_x in source_locations_x:
                             self.add_warning(
-                                source_location_y,
+                                source_location_x,
                                 "duplicate `to` key of transform should only be used within a single unit, "
                                 + f"but key {repr(_convert_field_path_to_key(to_key_y))} is also used implicitly within another units on line {source_location_y.line_number}",
                             )
@@ -443,7 +444,7 @@ class _NameChecker(_Checker):
                 if test_id in self._checked_test_ids_within_unit:
                     continue
 
-                if self.test_expr.op.startswith("v_"):
+                if is_v_op(self.test_expr.op):
                     continue
 
                 for value in self.test_expr.values:

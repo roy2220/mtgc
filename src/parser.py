@@ -12,6 +12,7 @@ from gjson.exceptions import GJSONParseError
 
 from .key_registry import KeyInfo, KeyRegistry
 from .scanner import EndOfFileError, Scanner, SourceLocation, Token, TokenType
+from .test_op_infos import is_v_op
 
 
 @dataclass(kw_only=True)
@@ -748,9 +749,9 @@ class Parser:
         key_info = self._get_key_info()
         self._get_expected_token(TokenType.COMMA)
         op = self._get_string()
-        is_v_op = op.startswith("v_")
+        is_v_op_ = is_v_op(op)
         values: list[str] = []
-        if is_v_op:
+        if is_v_op_:
             underlying_values: list[str] = []
         else:
             underlying_values = values
@@ -764,11 +765,14 @@ class Parser:
             value, source_location = self._get_string_with_source_location()
             values.append(value)
 
-            if is_v_op:
-                key_info_2 = self._key_registry.lookup_key(value)
-                if key_info_2 is None:
-                    raise UnknownKeyError(source_location, value)
-                underlying_values.append(str(key_info_2.index))
+            if is_v_op_:
+                if value.startswith("^"):
+                    underlying_values.append(value)
+                else:
+                    key_info_2 = self._key_registry.lookup_key(value)
+                    if key_info_2 is None:
+                        raise UnknownKeyError(source_location, value)
+                    underlying_values.append(str(key_info_2.index))
 
         self._get_expected_token(TokenType.CLOSE_PAREN)
         self._get_expected_token(TokenType.AS_KEYWORD)

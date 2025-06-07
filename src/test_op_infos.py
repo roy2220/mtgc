@@ -358,3 +358,7 @@ def replace_with_real_op(op: str) -> str:
 
 class InvalidCustomTestOpInfoDataError(Exception):
     pass
+
+
+def is_v_op(op: str) -> bool:
+    return op.startswith(("v_", "MatchOp_V_"))
