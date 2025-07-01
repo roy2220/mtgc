@@ -503,7 +503,9 @@ class ExcelGenerator:
 
         lines.append("▶ WHEN")
         for i, and_expr in enumerate(and_exprs):
-            condition_tags = list(map(self._make_condition_tag, and_expr.test_exprs))
+            condition_tags = list(
+                map(self._make_condition_tag_with_style, and_expr.test_exprs)
+            )
 
             if len(condition_tags) == 0:
                 lines.append("[No condition]")
@@ -542,6 +544,12 @@ class ExcelGenerator:
         return " ".join(parts)
 
     def _make_condition_tag(self, test_expr: TestExpr) -> str:
+        if test_expr.is_negative:
+            return "❌ " + test_expr.fact
+        else:
+            return "✅ " + test_expr.fact
+
+    def _make_condition_tag_with_style(self, test_expr: TestExpr) -> str:
         if test_expr.is_negative:
             return "❌ " + self._delete_text(test_expr.fact)
         else:
