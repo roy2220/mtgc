@@ -35,7 +35,7 @@ class ExcelGenerator:
     __slots__ = (
         "_components",
         "_output_file_name",
-        "_color_mark",
+        "_style_mark",
         "_symbol_references",
         "_workbook",
         "_cell_fmt",
@@ -57,6 +57,7 @@ class ExcelGenerator:
         "_default_text_fmt",
         "_highlight_text_fmt",
         "_conceal_text_fmt",
+        "_delete_text_fmt",
         "_worksheet_name",
         "_worksheet",
         "_row_index",
@@ -69,7 +70,7 @@ class ExcelGenerator:
     def __init__(self, components: list[Component], output_file_name: str) -> None:
         self._components = components
         self._output_file_name = output_file_name
-        self._color_mark = uuid.uuid4().hex
+        self._style_mark = uuid.uuid4().hex
         self._symbol_references: list[_SymbolReference] = []
 
     def dump_components(self) -> None:
@@ -249,6 +250,12 @@ class ExcelGenerator:
                 "font_color": "#808080",
                 "font_size": font_size,
                 "italic": True,
+            }
+        )
+        self._delete_text_fmt = self._workbook.add_format(
+            {
+                "font_size": font_size,
+                "font_strikeout": True,
             }
         )
 
@@ -494,15 +501,6 @@ class ExcelGenerator:
     ) -> str:
         lines: list[str] = []
 
-        lines.append("▶ THEN")
-        if len(transform_list) == 0:
-            lines.append("[No action]")
-        else:
-            for i, transform in enumerate(transform_list):
-                action_number = self._conceal_text(f"[action-{1+i}]")
-                line = f"{action_number}  " + transform.annotation
-                lines.append(line)
-
         lines.append("▶ WHEN")
         for i, and_expr in enumerate(and_exprs):
             condition_tags = list(map(self._make_condition_tag, and_expr.test_exprs))
@@ -514,6 +512,15 @@ class ExcelGenerator:
             condition_number = self._conceal_text(f"[condition-{1+i}]")
             line = f"{condition_number}  " + "; ".join(condition_tags)
             lines.append(line)
+
+        lines.append("▶ THEN")
+        if len(transform_list) == 0:
+            lines.append("[No action]")
+        else:
+            for i, transform in enumerate(transform_list):
+                action_number = self._conceal_text(f"[action-{1+i}]")
+                line = f"{action_number}  " + transform.annotation
+                lines.append(line)
 
         return "\n".join(lines)
 
@@ -534,10 +541,9 @@ class ExcelGenerator:
         parts.append(")")
         return " ".join(parts)
 
-    @classmethod
-    def _make_condition_tag(cls, test_expr: TestExpr) -> str:
+    def _make_condition_tag(self, test_expr: TestExpr) -> str:
         if test_expr.is_negative:
-            return "❌ " + test_expr.fact
+            return "❌ " + self._delete_text(test_expr.fact)
         else:
             return "✅ " + test_expr.fact
 
@@ -763,29 +769,34 @@ class ExcelGenerator:
                 )
 
     def _hilight_text(self, text: str) -> str:
-        return self._color_text(text, "hl")
+        return self._stylize_text(text, "highlight")
 
     def _conceal_text(self, text: str) -> str:
-        return self._color_text(text, "cc")
+        return self._stylize_text(text, "conceal")
 
-    def _color_text(self, text: str, style: str) -> str:
+    def _delete_text(self, text: str) -> str:
+        return self._stylize_text(text, "delete")
+
+    def _stylize_text(self, text: str, style: str) -> str:
         if text == "":
             return ""
-        return f"<{style}:{self._color_mark}>{text}</{style}:{self._color_mark}>"
+        return f"<{style}:{self._style_mark}>{text}</{style}:{self._style_mark}>"
 
     def _render_colorful_text(self, text: str) -> list[str | Format]:
-        parts = re.split(rf"(</?(?:hl|cc):{self._color_mark}>)", text)
+        parts = re.split(rf"(</?(?:[^:]+):{self._style_mark}>)", text)
         colorful_text: list[str | Format] = []
 
         for i, part in enumerate(parts):
             if part == "":
                 continue
 
-            if self._color_mark in part:
-                if part.startswith("<hl:"):
+            if self._style_mark in part:
+                if part.startswith("<highlight:"):
                     colorful_text.append(self._highlight_text_fmt)
-                elif part.startswith("<cc:"):
+                elif part.startswith("<conceal:"):
                     colorful_text.append(self._conceal_text_fmt)
+                elif part.startswith("<delete:"):
+                    colorful_text.append(self._delete_text_fmt)
                 elif part.startswith("</"):
                     colorful_text.append(self._default_text_fmt)
                 else:
@@ -799,7 +810,7 @@ class ExcelGenerator:
         return colorful_text
 
     def _write_column(self, row: int, col: int, text: str, format: Format) -> None:
-        if self._color_mark in text:
+        if self._style_mark in text:
             self._worksheet.write_rich_string(
                 row, col, *self._render_colorful_text(text), format
             )
@@ -822,7 +833,7 @@ class ExcelGenerator:
             self._write_column(first_row, first_col, text, format)
             return
 
-        if self._color_mark in text:
+        if self._style_mark in text:
             self._worksheet.merge_range(
                 first_row, first_col, last_row, last_col, "", format
             )
