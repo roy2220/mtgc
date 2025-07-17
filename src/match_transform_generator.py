@@ -49,7 +49,7 @@ class MatchTransformGenerator:
             for bundle in component.bundles:
                 if bundle.name in program.keys():
                     raise ValueError(f"bundle name {repr(bundle.name)} conflicts")
-                program[bundle.name] = self._dump_bundle(bundle, debug_map)
+                program[bundle.name] = self._dump_bundle(component, bundle, debug_map)
 
         with open(self._program_file_name, "w") as f:
             f.write(
@@ -68,19 +68,22 @@ class MatchTransformGenerator:
         with open(self._go_program_loader_file_name, "w") as f:
             f.write(self._format_go_code("".join(source_code)))
 
-    def _dump_bundle(self, bundle: Bundle, debug_map: list[str]) -> list[dict]:
+    def _dump_bundle(
+        self, component: Component, bundle: Bundle, debug_map: list[str]
+    ) -> list[dict]:
         unit_list: list[dict] = []
 
         for unit in bundle.units:
             unit_list.append(
-                self._dump_unit(unit, debug_map),
+                self._dump_unit(component, unit, debug_map),
             )
 
         return unit_list
 
-    def _dump_unit(self, unit: Unit, debug_map: list[str]) -> dict:
+    def _dump_unit(
+        self, component: Component, unit: Unit, debug_map: list[str]
+    ) -> dict:
         transform_list: list[dict] = []
-        match_list: list[dict] = []
 
         number_of_and_exprs = 0
         for return_point in unit.return_points:
@@ -104,25 +107,31 @@ class MatchTransformGenerator:
         unit_id = self._unit_id_generator.get_unit_id(unit.name)
         self._next_trace_point_id = unit_id * 10000 + 1
 
-        for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
-            match_list.append(self._dump_match(and_expr, unit.name, return_point_index))
+        return_points = list(zip(all_and_exprs, return_point_indexes))
+        enable_tree_map = any(
+            map(
+                lambda x: x == "feat:treemap",
+                component.line_directives.get(unit.source_location.line_number, ()),
+            )
+        )
+        match_list = self._dump_match_list(return_points, 0, unit.name, enable_tree_map)
 
         unit_2 = {
             "__unit_name__": unit.name,
-            "tree": {
-                # "has_next": False,
-                # "key": 0,
-                # "tree": None,
-                "default_target_value_index": 0,
-                "match": match_list,
-            },
+            "tree": None,
             "target_values": transform_list,
         }
+        if len(match_list) == 1 and (tree := match_list[0].get("tree")) is not None:
+            unit_2["tree"] = tree
+        else:
+            unit_2["tree"] = {
+                "default_target_value_index": 0,
+                "match": match_list,
+            }
 
         debug_map.append(f"========== {unit.name} ==========")
-        self._next_trace_point_id = unit_id * 10000 + 1
 
-        for and_expr, return_point_index in zip(all_and_exprs, return_point_indexes):
+        for and_expr, return_point_index in return_points:
             condition_tags: list[str] = []
 
             for test_expr in and_expr.test_exprs:
@@ -140,18 +149,16 @@ class MatchTransformGenerator:
                 if test_expr.is_dismissed:
                     condition_tag = "~~" + condition_tag
                 else:
-                    if self._trace_point_ids_key_index >= 1:
-                        condition_tag = f"[{self._next_trace_point_id}] {condition_tag}"
-                        self._next_trace_point_id += 1
+                    if (trace_point_id := test_expr.trace_point_id) is not None:
+                        condition_tag = f"[{trace_point_id}] {condition_tag}"
 
                 condition_tags.append(condition_tag)
 
-            if self._trace_point_ids_key_index >= 1:
+            if (trace_point_id := and_expr.trailing_trace_point_id) is not None:
                 if len(condition_tags) == 0:
-                    condition_tags.append(f"[{self._next_trace_point_id}]")
+                    condition_tags.append(f"[{trace_point_id}]")
                 else:
-                    condition_tags[-1] += f" [{self._next_trace_point_id}]"
-                self._next_trace_point_id += 1
+                    condition_tags[-1] += f" [{trace_point_id}]"
 
             debug_map.append(
                 f"M{original_and_expr_indexes[and_expr.index]} => T{return_point_index}: "
@@ -201,15 +208,143 @@ class MatchTransformGenerator:
         }
         return transform
 
+    def _dump_match_list(
+        self,
+        return_points: list[tuple[AndExpr, int]],
+        first_test_expr_index: int,
+        unit_name: str,
+        enable_tree_map: bool,
+    ) -> list[dict]:
+        if enable_tree_map:
+            for x1 in range(len(return_points)):
+                and_expr_1 = return_points[x1][0]
+                test_path_1: list[int] = []
+                for y1 in range(first_test_expr_index, len(and_expr_1.test_exprs)):
+                    test_expr_1 = and_expr_1.test_exprs[y1]
+                    if test_expr_1.is_dismissed or test_expr_1.is_merged:
+                        test_path_1.append(test_expr_1.test_id)
+                        continue
+                    if test_expr_1.is_negative:
+                        op = test_expr_1.reverse_op
+                    else:
+                        op = test_expr_1.op
+                    if op in ("eq", "in"):
+                        test_path_1.append(test_expr_1.key_index)
+                    else:
+                        test_path_1.clear()
+                    break
+                if len(test_path_1) == 0:
+                    continue
+
+                n = 1
+                for x2 in range(x1 + 1, len(return_points)):
+                    and_expr_2 = return_points[x2][0]
+                    test_path_2: list[int] = []
+                    for y2 in range(first_test_expr_index, len(and_expr_2.test_exprs)):
+                        test_expr_2 = and_expr_2.test_exprs[y2]
+                        if test_expr_2.is_dismissed or test_expr_2.is_merged:
+                            test_path_2.append(test_expr_2.test_id)
+                            continue
+                        if test_expr_2.is_negative:
+                            op = test_expr_2.reverse_op
+                        else:
+                            op = test_expr_2.op
+                        if test_expr_2.op in ("eq", "in"):
+                            test_path_2.append(test_expr_2.key_index)
+                        else:
+                            test_path_2.clear()
+                        break
+                    if test_path_2 != test_path_1:
+                        break
+                    n += 1
+                if n < 4:
+                    continue
+
+                match_list: list[dict] = []
+                for and_expr, return_point_index in return_points[:x1]:
+                    match_list.append(
+                        self._dump_match(
+                            and_expr,
+                            return_point_index,
+                            first_test_expr_index,
+                            unit_name,
+                        )
+                    )
+                match_list.append(
+                    {
+                        "has_next": True,
+                        "tree": {
+                            "default_target_value_index": 0,
+                            "key": test_path_1[-1],
+                            "tree": self._dump_tree_map(
+                                return_points[x1 : x1 + n],
+                                first_test_expr_index + len(test_path_1) - 1,
+                                unit_name,
+                            ),
+                            "match": self._dump_match_list(
+                                return_points[x1 + n :],
+                                first_test_expr_index,
+                                unit_name,
+                                True,
+                            ),
+                        },
+                    }
+                )
+                return match_list
+
+        match_list: list[dict] = []
+        for and_expr, return_point_index in return_points:
+            match_list.append(
+                self._dump_match(
+                    and_expr, return_point_index, first_test_expr_index, unit_name
+                )
+            )
+        return match_list
+
+    def _dump_tree_map(
+        self,
+        return_points: list[tuple[AndExpr, int]],
+        test_expr_index: int,
+        unit_name: str,
+    ) -> dict[str, dict]:
+        value_2_return_points: dict[str, list[tuple[AndExpr, int]]] = {}
+        for return_point in return_points:
+            for v in return_point[0].test_exprs[test_expr_index].values:
+                return_points_of_value = value_2_return_points.get(v)
+                if return_points_of_value is None:
+                    return_points_of_value = []
+                    value_2_return_points[v] = return_points_of_value
+                return_points_of_value.append(return_point)
+
+        tree_map: dict[str, dict] = {}
+        for value, return_points_of_value in value_2_return_points.items():
+            match_list = self._dump_match_list(
+                return_points_of_value,
+                test_expr_index + 1,
+                unit_name,
+                True,
+            )
+            if len(match_list) == 1 and (tree := match_list[0].get("tree")) is not None:
+                tree_map[value] = tree
+            else:
+                tree_map[value] = {
+                    "default_target_value_index": 0,
+                    "match": match_list,
+                }
+        return tree_map
+
     def _dump_match(
-        self, and_expr: AndExpr, unit_name: str, return_point_index: int
+        self,
+        and_expr: AndExpr,
+        return_point_index: int,
+        first_test_expr_index: int,
+        unit_name: str,
     ) -> dict:
         condition_list: list[dict] = []
 
-        for test_expr in and_expr.test_exprs:
-            if test_expr.is_dismissed:
-                continue
-            if test_expr.is_merged:
+        for y in range(first_test_expr_index, len(and_expr.test_exprs)):
+            test_expr = and_expr.test_exprs[y]
+            if test_expr.is_dismissed or test_expr.is_merged:
                 continue
 
             condition_tags: list[str] = [make_condition_tag(test_expr)]
@@ -234,32 +369,34 @@ class MatchTransformGenerator:
                 condition.pop("__named_values__")
 
             if self._trace_point_ids_key_index >= 1:
+                if test_expr.trace_point_id is None:
+                    test_expr.trace_point_id = self._next_trace_point_id
+                    self._next_trace_point_id += 1
                 condition_list.append(
                     {
-                        "__comment__": f"trace point {self._next_trace_point_id}",
+                        "__comment__": f"trace point {test_expr.trace_point_id}",
                         "key": self._trace_point_ids_key_index,
-                        "values": [str(self._next_trace_point_id)],
+                        "values": [str(test_expr.trace_point_id)],
                         "operator": "MatchOp_X/TracePoint/True",
                     }
                 )
-                self._next_trace_point_id += 1
 
             condition_list.append(condition)
 
         if self._trace_point_ids_key_index >= 1:
+            if and_expr.trailing_trace_point_id is None:
+                and_expr.trailing_trace_point_id = self._next_trace_point_id
+                self._next_trace_point_id += 1
             condition_list.append(
                 {
-                    "__comment__": f"trace point {self._next_trace_point_id}",
+                    "__comment__": f"trace point {and_expr.trailing_trace_point_id}",
                     "key": self._trace_point_ids_key_index,
-                    "values": [str(self._next_trace_point_id)],
+                    "values": [str(and_expr.trailing_trace_point_id)],
                     "operator": "MatchOp_X/TracePoint/True",
                 }
             )
-            self._next_trace_point_id += 1
 
         match = {
-            # "has_next": False,
-            # "tree": None,
             "condition_node": {
                 "condition": condition_list,
                 "condition_type": 0,  # AND

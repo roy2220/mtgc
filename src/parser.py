@@ -264,7 +264,7 @@ class Parser:
                 case TokenType.WHITESPACE:
                     continue
                 case TokenType.COMMENT:
-                    if t.data.startswith("//lint:"):
+                    if t.data.startswith(("//lint:", "//feat:")):
                         line_directives.append(t.data[2:])
                     continue
                 case _:
