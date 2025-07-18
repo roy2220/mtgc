@@ -114,6 +114,7 @@ class MatchTransformGenerator:
                 component.line_directives.get(unit.source_location.line_number, ()),
             )
         )
+        # enable_tree_map = True
         match_list = self._dump_match_list(return_points, 0, unit.name, enable_tree_map)
 
         unit_2 = {
@@ -121,8 +122,8 @@ class MatchTransformGenerator:
             "tree": None,
             "target_values": transform_list,
         }
-        if len(match_list) == 1 and (tree := match_list[0].get("tree")) is not None:
-            unit_2["tree"] = tree
+        if len(match_list) == 1 and match_list[0].get("has_next", False):
+            unit_2["tree"] = match_list[0]["tree"]
         else:
             unit_2["tree"] = {
                 "default_target_value_index": 0,
@@ -130,7 +131,6 @@ class MatchTransformGenerator:
             }
 
         debug_map.append(f"========== {unit.name} ==========")
-
         for and_expr, return_point_index in return_points:
             condition_tags: list[str] = []
 
@@ -216,52 +216,42 @@ class MatchTransformGenerator:
         enable_tree_map: bool,
     ) -> list[dict]:
         if enable_tree_map:
-            for x1 in range(len(return_points)):
-                and_expr_1 = return_points[x1][0]
-                test_path_1: list[int] = []
-                for y1 in range(first_test_expr_index, len(and_expr_1.test_exprs)):
-                    test_expr_1 = and_expr_1.test_exprs[y1]
-                    if test_expr_1.is_dismissed or test_expr_1.is_merged:
-                        test_path_1.append(test_expr_1.test_id)
+            test_paths: list[tuple[int, ...]] = []
+            for return_point in return_points:
+                and_expr = return_point[0]
+                test_path: list[int] = []
+                for i in range(first_test_expr_index, len(and_expr.test_exprs)):
+                    test_expr = and_expr.test_exprs[i]
+                    if test_expr.is_dismissed or test_expr.is_merged:
+                        test_path.append(test_expr.test_id)
                         continue
-                    if test_expr_1.is_negative:
-                        op = test_expr_1.reverse_op
+                    if test_expr.is_negative:
+                        op = test_expr.reverse_op
                     else:
-                        op = test_expr_1.op
+                        op = test_expr.op
                     if op in ("eq", "in"):
-                        test_path_1.append(test_expr_1.key_index)
+                        test_path.append(test_expr.key_index)
+                        test_paths.append(tuple(test_path))
                     else:
-                        test_path_1.clear()
+                        test_paths.append(())
                     break
-                if len(test_path_1) == 0:
+
+            for x, test_path_x in enumerate(test_paths):
+                if len(test_path_x) == 0:
                     continue
 
                 n = 1
-                for x2 in range(x1 + 1, len(return_points)):
-                    and_expr_2 = return_points[x2][0]
-                    test_path_2: list[int] = []
-                    for y2 in range(first_test_expr_index, len(and_expr_2.test_exprs)):
-                        test_expr_2 = and_expr_2.test_exprs[y2]
-                        if test_expr_2.is_dismissed or test_expr_2.is_merged:
-                            test_path_2.append(test_expr_2.test_id)
-                            continue
-                        if test_expr_2.is_negative:
-                            op = test_expr_2.reverse_op
-                        else:
-                            op = test_expr_2.op
-                        if test_expr_2.op in ("eq", "in"):
-                            test_path_2.append(test_expr_2.key_index)
-                        else:
-                            test_path_2.clear()
-                        break
-                    if test_path_2 != test_path_1:
+                for y in range(x + 1, len(test_paths)):
+                    test_path_y = test_paths[y]
+                    if test_path_y != test_path_x:
                         break
                     n += 1
-                if n < 4:
+                if n <= 3:
                     continue
 
+                # 启用tree-map优化
                 match_list: list[dict] = []
-                for and_expr, return_point_index in return_points[:x1]:
+                for and_expr, return_point_index in return_points[:x]:
                     match_list.append(
                         self._dump_match(
                             and_expr,
@@ -270,19 +260,22 @@ class MatchTransformGenerator:
                             unit_name,
                         )
                     )
+                test_expr_index = first_test_expr_index + len(test_path_x) - 1
+                test_expr = return_points[x][0].test_exprs[test_expr_index]
                 match_list.append(
                     {
                         "has_next": True,
                         "tree": {
                             "default_target_value_index": 0,
-                            "key": test_path_1[-1],
+                            "key": test_expr.key_index,
+                            "__named_key__": test_expr.key,
                             "tree": self._dump_tree_map(
-                                return_points[x1 : x1 + n],
-                                first_test_expr_index + len(test_path_1) - 1,
+                                return_points[x : x + n],
+                                test_expr_index,
                                 unit_name,
                             ),
                             "match": self._dump_match_list(
-                                return_points[x1 + n :],
+                                return_points[x + n :],
                                 first_test_expr_index,
                                 unit_name,
                                 True,
@@ -309,7 +302,10 @@ class MatchTransformGenerator:
     ) -> dict[str, dict]:
         value_2_return_points: dict[str, list[tuple[AndExpr, int]]] = {}
         for return_point in return_points:
-            for v in return_point[0].test_exprs[test_expr_index].values:
+            test_expr = return_point[0].test_exprs[test_expr_index]
+            if test_expr.trace_point_id is None:
+                test_expr.trace_point_id = -1
+            for v in test_expr.values:
                 return_points_of_value = value_2_return_points.get(v)
                 if return_points_of_value is None:
                     return_points_of_value = []
@@ -324,8 +320,8 @@ class MatchTransformGenerator:
                 unit_name,
                 True,
             )
-            if len(match_list) == 1 and (tree := match_list[0].get("tree")) is not None:
-                tree_map[value] = tree
+            if len(match_list) == 1 and match_list[0].get("has_next", False):
+                tree_map[value] = match_list[0]["tree"]
             else:
                 tree_map[value] = {
                     "default_target_value_index": 0,
@@ -342,8 +338,8 @@ class MatchTransformGenerator:
     ) -> dict:
         condition_list: list[dict] = []
 
-        for y in range(first_test_expr_index, len(and_expr.test_exprs)):
-            test_expr = and_expr.test_exprs[y]
+        for i in range(first_test_expr_index, len(and_expr.test_exprs)):
+            test_expr = and_expr.test_exprs[i]
             if test_expr.is_dismissed or test_expr.is_merged:
                 continue
 
