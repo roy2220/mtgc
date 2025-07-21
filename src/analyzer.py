@@ -68,6 +68,9 @@ class AndExpr:
     test_exprs: list["TestExpr"]
     index: int
 
+    # for debugging
+    trailing_trace_point_id: int | None = None
+
 
 @dataclass(kw_only=True)
 class TestExpr:
@@ -84,6 +87,9 @@ class TestExpr:
     is_dismissed: bool
     is_merged: bool
     merged_children: list["TestExpr"]
+
+    # for debugging
+    trace_point_id: int | None = None
 
 
 class Analyzer:
