@@ -1083,16 +1083,10 @@ class _P3Analyzer:
                             ),
                         ):
                             # merge Y=`in[a, c]` into X=`in[a, b]`
-                            test_expr_x.values.extend(test_expr_y.real_values())
-                            test_expr_x.underlying_values.extend(
-                                test_expr_y.real_underlying_values()
-                            )
+                            cls._add_real_values(test_expr_x, test_expr_y)
                         else:
                             # merge Y=`nin[a, c]` into X=`in[a, b]`
-                            cls._remove_real_values(
-                                test_expr_x, set(test_expr_y.real_values())
-                            )
-
+                            cls._remove_real_values(test_expr_x, test_expr_y)
                         test_expr_x.merged_children.append(test_expr_y)
                         test_expr_y.is_merged = True
 
@@ -1125,10 +1119,7 @@ class _P3Analyzer:
                         test_expr_x.virtual_key()
                     ):
                         # merge `Y=nin[a, c]` into X=`nin[a, b]`
-                        test_expr_x.values.extend(test_expr_y.real_values())
-                        test_expr_x.underlying_values.extend(
-                            test_expr_y.real_underlying_values()
-                        )
+                        cls._add_real_values(test_expr_x, test_expr_y)
                         test_expr_x.merged_children.append(test_expr_y)
                         test_expr_y.is_merged = True
 
@@ -1142,20 +1133,36 @@ class _P3Analyzer:
                     test_expr.reverse_op = test_op_infos[single_test_op].reverse_op
 
     @classmethod
-    def _remove_real_values(
-        cls, test_expr: _P3TestExpr, target_values: set[str]
+    def _add_real_values(
+        cls, test_expr_x: _P3TestExpr, test_expr_y: _P3TestExpr
     ) -> None:
-        i = test_expr.number_of_subkeys
-        for j in range(test_expr.number_of_subkeys, len(test_expr.values)):
-            if test_expr.values[j] in target_values:
+        all_values = set(test_expr_x.real_values())
+        for i in range(test_expr_y.number_of_subkeys, len(test_expr_y.values)):
+            v = test_expr_y.values[i]
+            if v in all_values:
                 continue
 
-            test_expr.values[i] = test_expr.values[j]
-            test_expr.underlying_values[i] = test_expr.underlying_values[j]
+            test_expr_x.values.append(v)
+            test_expr_x.underlying_values.append(test_expr_y.underlying_values[i])
+            all_values.add(v)
+
+    @classmethod
+    def _remove_real_values(
+        cls, test_expr_x: _P3TestExpr, test_expr_y: _P3TestExpr
+    ) -> None:
+        values_to_remove = set(test_expr_y.real_values())
+        i = test_expr_x.number_of_subkeys
+        for j in range(test_expr_x.number_of_subkeys, len(test_expr_x.values)):
+            v = test_expr_x.values[j]
+            if v in values_to_remove:
+                continue
+
+            test_expr_x.values[i] = v
+            test_expr_x.underlying_values[i] = test_expr_x.underlying_values[j]
             i += 1
 
-        del test_expr.values[i:]
-        del test_expr.underlying_values[i:]
+        del test_expr_x.values[i:]
+        del test_expr_x.underlying_values[i:]
 
 
 class _P4Analyzer(Visitor):

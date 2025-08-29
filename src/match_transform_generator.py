@@ -1,7 +1,9 @@
 import binascii
+import dataclasses
 import json
 import os
 import subprocess
+from dataclasses import dataclass
 from typing import Any
 
 from .analyzer import AndExpr, Bundle, Component, OrExpr, ReturnPoint, TestExpr, Unit
@@ -216,40 +218,91 @@ class MatchTransformGenerator:
         enable_tree_map: bool,
     ) -> list[dict]:
         if enable_tree_map:
-            test_paths: list[tuple[int, ...]] = []
+
+            @dataclass
+            class TestPathItem:
+                op: str = ""
+                key_index: int = 0
+                test_ids: tuple[int, ...] = ()
+
+            @dataclass
+            class TestPath:
+                type: str = ""
+                items: list[TestPathItem] = dataclasses.field(default_factory=list)
+
+            test_paths: list[TestPath] = []
             for return_point in return_points:
                 and_expr = return_point[0]
-                test_path: list[int] = []
+                test_path = TestPath()
                 for i in range(first_test_expr_index, len(and_expr.test_exprs)):
                     test_expr = and_expr.test_exprs[i]
-                    if test_expr.is_dismissed or test_expr.is_merged:
-                        test_path.append(test_expr.test_id)
-                        continue
+                    test_path_item = TestPathItem(
+                        key_index=test_expr.key_index,
+                        test_ids=(test_expr.test_id,)
+                        + tuple(v.test_id for v in test_expr.merged_children),
+                    )
                     if test_expr.is_negative:
                         op = test_expr.reverse_op
                     else:
                         op = test_expr.op
                     if op in ("eq", "in"):
-                        test_path.append(test_expr.key_index)
-                        test_paths.append(tuple(test_path))
-                    else:
-                        test_paths.append(())
-                    break
+                        test_path_item.op = "IN"
+                    elif op in ("neq", "nin"):
+                        test_path_item.op = "NOT_IN"
+                    test_path.items.append(test_path_item)
+                    if not (test_expr.is_dismissed or test_expr.is_merged):
+                        if test_path_item.op == "IN":
+                            if len(test_path_item.test_ids) == 1:
+                                test_path.type = "CASE"
+                                break
+                        elif test_path_item.op == "NOT_IN":
+                            test_path.type = "DEFAULT_CASE"
+                            break
+                test_paths.append(test_path)
 
-            for x, test_path_x in enumerate(test_paths):
-                if len(test_path_x) == 0:
+            MIN_HIT_COUNT = 4
+            for x, test_path_x in enumerate(test_paths[: -MIN_HIT_COUNT + 1]):
+                if test_path_x.type == "":
                     continue
 
-                n = 1
+                i = len(test_path_x.items) - 1
+                hit_count = 1
                 for y in range(x + 1, len(test_paths)):
                     test_path_y = test_paths[y]
-                    if test_path_y != test_path_x:
+                    if not (
+                        test_path_y.type == test_path_x.type
+                        and len(test_path_y.items) == i + 1
+                        and test_path_y.items[i].key_index
+                        == test_path_x.items[i].key_index
+                        and test_path_y.items[:i] == test_path_x.items[:i]
+                    ):
                         break
-                    n += 1
-                if n <= 3:
+                    hit_count += 1
+                if hit_count < MIN_HIT_COUNT:
                     continue
 
-                # 启用tree-map优化
+                if test_path_x.type == "CASE":
+                    for y in range(x + hit_count, len(test_paths)):
+                        test_path_y = test_paths[y]
+                        assert (
+                            len(test_path_y.items) > i
+                            and test_path_y.items[i].op != ""
+                            and test_path_y.items[i].key_index
+                            == test_path_x.items[i].key_index
+                            and test_path_y.items[:i] == test_path_x.items[:i]
+                        ), f"unit_name={unit_name} test_path_x={test_path_x} test_path_y={test_path_y}"
+                elif test_path_x.type == "DEFAULT_CASE":
+                    for y in range(x + hit_count, len(test_paths)):
+                        test_path_y = test_paths[y]
+                        assert (
+                            len(test_path_y.items) > i
+                            and test_path_y.items[i].op == "IN"
+                            and len(test_path_y.items[i].test_ids) == 1
+                            and test_path_y.items[i].key_index
+                            == test_path_x.items[i].key_index
+                            and test_path_y.items[:i] == test_path_x.items[:i]
+                        ), f"unit_name={unit_name} test_path_x={test_path_x} test_path_y={test_path_y}"
+
                 match_list: list[dict] = []
                 for and_expr, return_point_index in return_points[:x]:
                     match_list.append(
@@ -260,8 +313,18 @@ class MatchTransformGenerator:
                             unit_name,
                         )
                     )
-                test_expr_index = first_test_expr_index + len(test_path_x) - 1
+                test_expr_index = first_test_expr_index + i
                 test_expr = return_points[x][0].test_exprs[test_expr_index]
+                if test_path_x.type == "CASE":
+                    return_points_a = return_points[x : x + hit_count]
+                    return_points_b = return_points[x + hit_count :]
+                else:
+                    return_points_a = return_points[x + hit_count :]
+                    return_points_b = return_points[x : x + hit_count]
+
+                for return_point in return_points[x:]:
+                    return_point[0].test_exprs[test_expr_index].trace_point_id = -1
+
                 match_list.append(
                     {
                         "has_next": True,
@@ -270,13 +333,13 @@ class MatchTransformGenerator:
                             "key": test_expr.key_index,
                             "__named_key__": test_expr.key,
                             "tree": self._dump_tree_map(
-                                return_points[x : x + n],
+                                return_points_a,
                                 test_expr_index,
                                 unit_name,
                             ),
                             "match": self._dump_match_list(
-                                return_points[x + n :],
-                                first_test_expr_index,
+                                return_points_b,
+                                test_expr_index + 1,
                                 unit_name,
                                 True,
                             ),
@@ -303,8 +366,6 @@ class MatchTransformGenerator:
         value_2_return_points: dict[str, list[tuple[AndExpr, int]]] = {}
         for return_point in return_points:
             test_expr = return_point[0].test_exprs[test_expr_index]
-            if test_expr.trace_point_id is None:
-                test_expr.trace_point_id = -1
             for v in test_expr.values:
                 return_points_of_value = value_2_return_points.get(v)
                 if return_points_of_value is None:
