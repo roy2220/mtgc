@@ -282,11 +282,15 @@ class MatchTransformGenerator:
                     continue
 
                 if test_path_x.type == "CASE":
+                    last_op = None
                     for y in range(x + hit_count, len(test_paths)):
                         test_path_y = test_paths[y]
+                        if last_op is None:
+                            last_op = test_path_y.items[i].op
                         assert (
                             len(test_path_y.items) > i
-                            and test_path_y.items[i].op != ""
+                            and last_op != ""
+                            and test_path_y.items[i].op == last_op
                             and test_path_y.items[i].key_index
                             == test_path_x.items[i].key_index
                             and test_path_y.items[:i] == test_path_x.items[:i]
