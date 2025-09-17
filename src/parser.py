@@ -142,6 +142,37 @@ class Parser:
             nodes=self._get_nodes(class_def.body),
         )
 
+    def get_match_transform(self, class1: type) -> MatchTransform:
+        self._target_type = "MATCH_TRANSFORM"
+        self._file_name = inspect.getfile(class1)
+        lines, self._first_line_number = inspect.getsourcelines(class1)
+        module = ast.parse("".join(lines), filename=self._file_name)
+
+        class_def = module.body[0]
+        assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
+        assert len(class_def.decorator_list) == 1, self._get_source_location(class_def)
+        call = class_def.decorator_list[0]
+        assert isinstance(call, ast.Call), self._get_source_location(call)
+        attribute = call.func
+        assert isinstance(attribute, ast.Attribute), self._get_source_location(
+            attribute
+        )
+        assert attribute.attr == "TABLE_MATCH_TRANSFORM", self._get_source_location(
+            attribute
+        )
+        assert len(call.args) == 1, self._get_source_location(call)
+        constant = call.args[0]
+        assert isinstance(constant, ast.Constant), self._get_source_location(constant)
+        assert isinstance(constant.value, str), self._get_source_location(constant)
+
+        component_name = constant.value
+
+        return MatchTransform(
+            source_location=self._get_source_location(class_def),
+            component_name=component_name,
+            business_units=self._get_business_units(class_def.body),
+        )
+
     def _get_nodes(self, class_body: list[ast.stmt]) -> list[Node]:
         nodes: list[Node] = []
 
@@ -178,6 +209,44 @@ class Parser:
 
         return nodes
 
+    def _get_business_units(self, class_body: list[ast.stmt]) -> list[BusinessUnit]:
+        business_units: list[BusinessUnit] = []
+
+        for function_def in class_body:
+            assert isinstance(function_def, ast.FunctionDef), self._get_source_location(
+                function_def
+            )
+            assert len(function_def.decorator_list) == 1, self._get_source_location(
+                function_def
+            )
+            call = function_def.decorator_list[0]
+            assert isinstance(call, ast.Call), self._get_source_location(call)
+            attribute = call.func
+            assert isinstance(attribute, ast.Attribute), self._get_source_location(
+                attribute
+            )
+            assert attribute.attr == "BUSINESS_UNIT", self._get_source_location(
+                attribute
+            )
+            assert len(call.args) == 1, self._get_source_location(call)
+            constant = call.args[0]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+
+            business_unit = constant.value
+
+            business_units.append(
+                BusinessUnit(
+                    source_location=self._get_source_location(function_def),
+                    business_unit=business_unit,
+                    body=self._get_body(function_def.body),
+                ),
+            )
+
+        return business_units
+
     def _get_body(self, stmts: list[ast.stmt]) -> list[Statement]:
         body: list[Statement] = []
 
@@ -205,7 +274,11 @@ class Parser:
                 ),
             )
         elif self._target_type == "MATCH_TRANSFORM":
-            pass
+            return ReturnStatement(
+                source_location=self._get_source_location(return1),
+                next=Next(source_location=None, node_id=""),
+                set=self._get_set(return1.value),
+            )
         else:
             assert False
 
@@ -224,7 +297,56 @@ class Parser:
 
         node_id = constant.value
 
-        return Next(source_location=self._get_source_location(call), node_id=node_id)
+        return Next(
+            source_location=self._get_source_location(call),
+            node_id=node_id,
+        )
+
+    def _get_set(self, return_value: ast.expr) -> Set:
+        call = return_value
+        assert isinstance(call, ast.Call), self._get_source_location(call)
+        attribute = call.func
+        assert isinstance(attribute, ast.Attribute), self._get_source_location(
+            attribute
+        )
+        assert attribute.attr == "Set", self._get_source_location(attribute)
+        assert len(call.args) == 2, self._get_source_location(call)
+        constant = call.args[0]
+        assert isinstance(constant, ast.Constant), self._get_source_location(constant)
+        assert isinstance(constant.value, str), self._get_source_location(constant)
+
+        business_scenario = constant.value
+
+        list1 = call.args[1]
+        assert isinstance(list1, ast.List), self._get_source_location(list1)
+
+        key_and_expr_pairs: list[tuple[str, str]] = []
+
+        for tuple1 in list1.elts:
+            assert isinstance(tuple1, ast.Tuple), self._get_source_location(tuple1)
+            assert len(tuple1.elts) == 2, self._get_source_location(tuple1)
+            constant = tuple1.elts[0]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+
+            key = constant.value
+
+            constant = tuple1.elts[1]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+
+            expr = constant.value
+            key_and_expr_pairs.append((key, expr))
+
+        return Set(
+            source_location=self._get_source_location(call),
+            business_scenario=business_scenario,
+            key_and_expr_pairs=key_and_expr_pairs,
+        )
 
     def _get_if_statement(self, if1: ast.If) -> IfStatement:
         condition = self._get_condition(if1.test)

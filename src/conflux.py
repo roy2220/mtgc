@@ -28,6 +28,8 @@ class Next:
 
 def TABLE_MATCH_TRANSFORM(component_name: str) -> Callable[[type], type]:
     def wrapper(c: type) -> type:
+        p = parser.Parser()
+        print(p.get_match_transform(c))
         return c
 
     return wrapper
