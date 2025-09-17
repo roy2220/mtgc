@@ -3,6 +3,8 @@ import enum
 import inspect
 from dataclasses import dataclass
 
+from sympy.logic import boolalg
+
 
 @dataclass(kw_only=True)
 class SourceLocation:
@@ -29,6 +31,10 @@ class Node:
     bound_component_name: str | None
     body: list["Statement"]
 
+    # for analysis
+    next_statement: "Statement | None" = None
+    return_points: "ReturnPoint | None" = None
+
 
 @dataclass(kw_only=True)
 class MatchTransform:
@@ -43,6 +49,10 @@ class BusinessUnit:
     business_unit: str
     body: list["Statement"]
 
+    # for analysis
+    next_statement: "Statement | None" = None
+    return_points: "ReturnPoint | None" = None
+
 
 type Statement = "ReturnStatement | IfStatement"
 
@@ -52,6 +62,12 @@ class ReturnStatement:
     source_location: SourceLocation
     next: "Next"  # for Node
     set: "Set"  # for MatchTransform
+
+    # for analysis
+    index: int = -1
+
+    def accept_visit(self, visitor: "Visitor") -> None:
+        visitor.visit_return_statement(self)
 
 
 @dataclass(kw_only=True)
@@ -76,12 +92,21 @@ class IfStatement:
     body: list[Statement]
     else_clause: "ElseClause"
 
+    # for analysis
+    next_statement: Statement | None = None
+
+    def accept_visit(self, visitor: "Visitor") -> None:
+        visitor.visit_if_statement(self)
+
 
 @dataclass(kw_only=True)
 class ElseClause:
     # if source_location is None, no ElseClause present
     source_location: SourceLocation | None
     body: list[Statement]
+
+    # for analysis
+    next_statement: Statement | None = None
 
 
 type Condition = "TestCondition | CompositeCondition"
@@ -93,6 +118,9 @@ class TestCondition:
     key: str
     op: str
     value: "bool | int | float | str | list[bool | int | float | str] | Value"
+
+    def accept_visit(self, visitor: "Visitor") -> None:
+        visitor.visit_test_condition(self)
 
 
 @dataclass(kw_only=True)
@@ -107,11 +135,30 @@ class CompositeCondition:
     condition_1: Condition
     condition_2: Condition | None
 
+    def accept_visit(self, visitor: "Visitor") -> None:
+        visitor.visit_composite_condition(self)
+
 
 class LogicalOpType(enum.IntEnum):
     LOGICAL_NOT = enum.auto()
     LOGICAL_OR = enum.auto()
     LOGICAL_AND = enum.auto()
+
+
+class Visitor:
+    def visit_return_statement(self, return_statement: ReturnStatement) -> None:
+        raise NotImplementedError()
+
+    def visit_if_statement(self, if_statement: IfStatement) -> None:
+        raise NotImplementedError()
+
+    def visit_test_condition(self, test_condition: TestCondition) -> None:
+        raise NotImplementedError()
+
+    def visit_composite_condition(
+        self, composite_condition: CompositeCondition
+    ) -> None:
+        raise NotImplementedError()
 
 
 class Parser:
@@ -273,13 +320,15 @@ class Parser:
         body: list[Statement] = []
 
         for stmt in stmts:
-            assert isinstance(stmt, (ast.Return, ast.If)), self._get_source_location(
-                stmt
-            )
+            assert isinstance(
+                stmt, (ast.Return, ast.If, ast.Pass)
+            ), self._get_source_location(stmt)
             if isinstance(stmt, ast.Return):
                 body.append(self._get_return_statement(stmt))
             elif isinstance(stmt, ast.If):
                 body.append(self._get_if_statement(stmt))
+            elif isinstance(stmt, ast.Pass):
+                pass
             else:
                 assert False
 
@@ -457,9 +506,6 @@ class Parser:
         ), self._get_source_location(call.args[2])
         if isinstance(call.args[2], ast.Constant):
             constant = call.args[2]
-            assert isinstance(constant, ast.Constant), self._get_source_location(
-                constant
-            )
             assert isinstance(
                 constant.value, (bool, int, float, str)
             ), self._get_source_location(constant)
@@ -509,3 +555,12 @@ class Parser:
             line_number=self._first_line_number + x.lineno - 1,  # type: ignore
             column_number=x.col_offset + 1,  # type: ignore
         )
+
+
+@dataclass(kw_only=True)
+class ReturnPoint:
+    source_location: SourceLocation
+    next: Next  # for Node
+    set: Set  # for MatchTransform
+
+    conditions: list[boolalg.Boolean]

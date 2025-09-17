@@ -59,19 +59,19 @@ class Set:
         pass
 
 
-class Value:
-    def __init__(self, from_key: str) -> None:
-        pass
-
-
 class Test:
     def __init__(
         self,
         key: str,
         op: str,
-        value: bool | int | float | str | list[bool | int | float | str] | Value,
+        value: "bool | int | float | str | list[bool | int | float | str] | Value",
     ) -> None:
         pass
 
     def __bool__(self) -> bool:
         return True
+
+
+class Value:
+    def __init__(self, from_key: str) -> None:
+        pass

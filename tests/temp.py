@@ -10,7 +10,8 @@ class Root:
         elif conflux.Test("MyKey", "in", [200, 300]):
             return conflux.Next(self.step_4)
         elif conflux.Test("MyKey", "eq", 100) or not (
-            conflux.Test("MyKey", "in", [200, 300]) or conflux.Test("MyKey", "eq", "11")
+            conflux.Test("MyKey", "in", [200, 300])
+            and conflux.Test("MyKey", "eq", "11")
         ):
             return conflux.Next(self.step_5)
         else:
@@ -507,4 +508,3 @@ if __name__ == "__main__":
         raw_match_transforms.append(p.get_match_transform(c))
 
     a = analyzer.Analyzer(raw_pipelines, raw_match_transforms)
-    a.run()

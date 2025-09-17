@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import Callable
 
 from . import parser
 from .parser import SourceLocation
@@ -73,7 +74,9 @@ class Analyzer:
         self._raw_nodes: list[parser.Node] = []
         self._components: dict[str, Component] = {}
 
-    def run(self) -> Bundle:
+        self.bundle = self._run()
+
+    def _run(self) -> Bundle:
         bundle = Bundle(
             pipelines=self._get_pipelines(),
             match_transforms=self._get_match_transforms(),
@@ -129,6 +132,11 @@ class Analyzer:
                 raise DuplicateNodeNameError(
                     raw_node.source_location, raw_node.node_name
                 )
+
+            raw_node.next_statement = _P1Analyzer(
+                raw_node.source_location, raw_node.body
+            ).next_statement
+
             nodes[raw_node.node_name] = Node(
                 source_location=raw_node.source_location,
                 node_name=raw_node.node_name,
@@ -175,6 +183,11 @@ class Analyzer:
                     raw_business_unit.body
                 ),
             )
+
+            raw_business_unit.next_statement = _P1Analyzer(
+                raw_business_unit.source_location, raw_business_unit.body
+            ).next_statement
+
             business_units.append(business_unit)
         return business_units
 
@@ -182,6 +195,69 @@ class Analyzer:
         self, body: list[parser.Statement]
     ) -> list[BusinessUnitRule]:
         return []
+
+
+class _P1Analyzer(parser.Visitor):
+    def __init__(
+        self, source_location: SourceLocation, body: list[parser.Statement]
+    ) -> None:
+        self._source_location = source_location
+        self._body = body
+        self._next_statement_setter_stack: list[Callable[[parser.Statement], None]] = []
+
+        self.next_statement = self._run()
+
+    def _run(self) -> parser.Statement:
+        next_statement = None
+
+        def set_next_statement(s: parser.Statement) -> None:
+            nonlocal next_statement
+            next_statement = s
+
+        self._visit_body(set_next_statement, self._body)
+
+        if len(self._next_statement_setter_stack) >= 1:
+            raise MissingReturnStatementError(self._source_location)
+
+        assert next_statement is not None
+        return next_statement
+
+    class _Return(Exception):
+        pass
+
+    def _visit_body(
+        self,
+        set_next_statement: Callable[[parser.Statement], None],
+        body: list[parser.Statement],
+    ) -> None:
+        i = len(self._next_statement_setter_stack)
+        self._next_statement_setter_stack.append(set_next_statement)
+
+        for s in body:
+            for f in self._next_statement_setter_stack[i:]:
+                f(s)
+            del self._next_statement_setter_stack[i:]
+
+            try:
+                s.accept_visit(self)
+            except self._Return:
+                return
+
+    def visit_return_statement(self, return_statement: parser.ReturnStatement) -> None:
+        raise self._Return()
+
+    def visit_if_statement(self, if_statement: parser.IfStatement) -> None:
+        def set_next_statement(s: parser.Statement) -> None:
+            if_statement.next_statement = s
+
+        self._visit_body(set_next_statement, if_statement.body)
+
+        if (else_clause := if_statement.else_clause).source_location is not None:
+
+            def set_next_statement(s: parser.Statement) -> None:
+                else_clause.next_statement = s
+
+            self._visit_body(set_next_statement, else_clause.body)
 
 
 class Error(Exception):
@@ -224,3 +300,8 @@ class HeadExpectedError(Error):
         super().__init__(
             source_location, f"the first node in the pipeline should be HEAD"
         )
+
+
+class MissingReturnStatementError(Error):
+    def __init__(self, source_location: SourceLocation) -> None:
+        super().__init__(source_location, f"missing return statement")
