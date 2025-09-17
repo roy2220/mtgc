@@ -25,7 +25,7 @@ class Pipeline:
 class Node:
     source_location: SourceLocation
     node_name: str
-    is_first: bool
+    is_head: bool
     bound_component_name: str | None
     body: list["Statement"]
 
@@ -191,13 +191,13 @@ class Parser:
             assert isinstance(attribute, ast.Attribute), self._get_source_location(
                 attribute
             )
-            assert attribute.attr in ("FIRST_NODE", "NODE"), self._get_source_location(
+            assert attribute.attr in ("HEAD", "NODE"), self._get_source_location(
                 attribute
             )
-            if attribute.attr == "FIRST_NODE":
+            if attribute.attr == "HEAD":
                 assert len(call.args) == 0, self._get_source_location(call)
 
-                is_first = True
+                is_head = True
                 bound_component_name = None
             elif attribute.attr == "NODE":
                 assert len(call.args) == 1, self._get_source_location(call)
@@ -209,7 +209,7 @@ class Parser:
                     constant
                 )
 
-                is_first = False
+                is_head = False
                 bound_component_name = constant.value
             else:
                 assert False
@@ -218,7 +218,7 @@ class Parser:
                 Node(
                     source_location=self._get_source_location(function_def),
                     node_name=function_def.name,
-                    is_first=is_first,
+                    is_head=is_head,
                     bound_component_name=bound_component_name,
                     body=self._get_body(function_def.body),
                 ),
@@ -482,5 +482,5 @@ class Parser:
         return SourceLocation(
             file_name=self._file_name,
             line_number=self._first_line_number + x.lineno - 1,  # type: ignore
-            column_number=x.col_offset,  # type: ignore
+            column_number=x.col_offset + 1,  # type: ignore
         )

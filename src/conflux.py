@@ -1,18 +1,18 @@
-from typing import Any, Callable, ParamSpec
+from typing import Any, Callable
 
-from . import parser
+pipeline_classes = []
+match_transform_classes = []
 
 
 def TABLE_PIPELINE(component_name: str) -> Callable[[type], type]:
     def wrapper(c: type) -> type:
-        p = parser.Parser()
-        print(p.get_pipeline(c))
+        pipeline_classes.append(c)
         return c
 
     return wrapper
 
 
-def FIRST_NODE() -> Callable[[Callable[[Any], "Next"]], Callable[[Any], "Next"]]:
+def HEAD() -> Callable[[Callable[[Any], "Next"]], Callable[[Any], "Next"]]:
     def wrapper(f: Callable[[Any], "Next"]) -> Callable[[Any], "Next"]:
         return f
 
@@ -35,8 +35,7 @@ class Next:
 
 def TABLE_MATCH_TRANSFORM(component_name: str) -> Callable[[type], type]:
     def wrapper(c: type) -> type:
-        p = parser.Parser()
-        print(p.get_match_transform(c))
+        match_transform_classes.append(c)
         return c
 
     return wrapper

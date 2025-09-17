@@ -1,9 +1,9 @@
-from src import conflux
+from src import analyzer, conflux, parser
 
 
 @conflux.TABLE_PIPELINE("root")
 class Root:
-    @conflux.FIRST_NODE()
+    @conflux.HEAD()
     def step_1(self) -> conflux.Next:
         if conflux.Test("MyKey", "eq", 100):
             return conflux.Next(self.step_3)
@@ -16,7 +16,7 @@ class Root:
         else:
             return conflux.Next(self.step_2)
 
-    @conflux.NODE("yyy")
+    @conflux.NODE("xxx")
     def step_2(self) -> conflux.Next:
         return conflux.Next(self.step_3)
 
@@ -493,3 +493,18 @@ class RawPostback:
         #         'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "ua")',
         #     ),
         # ]
+
+
+if __name__ == "__main__":
+    raw_pipelines: list[parser.Pipeline] = []
+    for c in conflux.pipeline_classes:
+        p = parser.Parser()
+        raw_pipelines.append(p.get_pipeline(c))
+
+    raw_match_transforms: list[parser.MatchTransform] = []
+    for c in conflux.match_transform_classes:
+        p = parser.Parser()
+        raw_match_transforms.append(p.get_match_transform(c))
+
+    a = analyzer.Analyzer(raw_pipelines, raw_match_transforms)
+    a.run()
