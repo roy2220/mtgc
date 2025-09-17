@@ -3,19 +3,34 @@ from src import conflux
 
 @conflux.TABLE_PIPELINE("root")
 class Root:
-    @conflux.NODE("setp_1")
-    def test(self) -> conflux.Next:
+    @conflux.NODE("xxx")
+    def step_1(self) -> conflux.Next:
         if conflux.Test("MyKey", "eq", 100):
-            return conflux.Next("step_3")
+            return conflux.Next(self.step_3)
         elif conflux.Test("MyKey", "in", [200, 300]):
-            return conflux.Next("step_4")
+            return conflux.Next(self.step_4)
         elif conflux.Test("MyKey", "eq", 100) or not (
             conflux.Test("MyKey", "in", [200, 300]) or conflux.Test("MyKey", "eq", "11")
         ):
-            return conflux.Next("step_4")
+            return conflux.Next(self.step_5)
         else:
-            return conflux.Next("step_5")
-        return conflux.Next("step_2")
+            return conflux.Next(self.step_2)
+
+    @conflux.NODE("yyy")
+    def step_2(self) -> conflux.Next:
+        return conflux.Next(self.step_3)
+
+    @conflux.NODE("yyy")
+    def step_3(self) -> conflux.Next:
+        return conflux.Next(self.step_4)
+
+    @conflux.NODE("yyy")
+    def step_4(self) -> conflux.Next:
+        return conflux.Next(self.step_5)
+
+    @conflux.NODE("yyy")
+    def step_5(self) -> conflux.Next:
+        return conflux.Next(None)
 
 
 @conflux.TABLE_MATCH_TRANSFORM("参数解析")

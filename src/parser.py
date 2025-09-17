@@ -24,7 +24,8 @@ class Pipeline:
 @dataclass(kw_only=True)
 class Node:
     source_location: SourceLocation
-    node_id: str
+    node_name: str
+    bound_component_name: str
     body: list["Statement"]
 
 
@@ -56,7 +57,7 @@ class ReturnStatement:
 class Next:
     # if source_location is None, no Next present
     source_location: SourceLocation | None
-    node_id: str
+    node_name: str | None
 
 
 @dataclass(kw_only=True)
@@ -139,7 +140,7 @@ class Parser:
         return Pipeline(
             source_location=self._get_source_location(class_def),
             component_name=component_name,
-            nodes=self._get_nodes(class_def.body),
+            nodes=self._get_nodes(component_name, class_def.body),
         )
 
     def get_match_transform(self, class1: type) -> MatchTransform:
@@ -173,7 +174,7 @@ class Parser:
             business_units=self._get_business_units(class_def.body),
         )
 
-    def _get_nodes(self, class_body: list[ast.stmt]) -> list[Node]:
+    def _get_nodes(self, component_name: str, class_body: list[ast.stmt]) -> list[Node]:
         nodes: list[Node] = []
 
         for function_def in class_body:
@@ -197,12 +198,13 @@ class Parser:
             )
             assert isinstance(constant.value, str), self._get_source_location(constant)
 
-            node_id = constant.value
+            bound_component_name = constant.value
 
             nodes.append(
                 Node(
                     source_location=self._get_source_location(function_def),
-                    node_id=node_id,
+                    node_name=component_name + "_" + function_def.name,
+                    bound_component_name=bound_component_name,
                     body=self._get_body(function_def.body),
                 ),
             )
@@ -276,7 +278,7 @@ class Parser:
         elif self._target_type == "MATCH_TRANSFORM":
             return ReturnStatement(
                 source_location=self._get_source_location(return1),
-                next=Next(source_location=None, node_id=""),
+                next=Next(source_location=None, node_name=""),
                 set=self._get_set(return1.value),
             )
         else:
@@ -291,15 +293,22 @@ class Parser:
         )
         assert attribute.attr == "Next", self._get_source_location(attribute)
         assert len(call.args) == 1, self._get_source_location(call)
-        constant = call.args[0]
-        assert isinstance(constant, ast.Constant), self._get_source_location(constant)
-        assert isinstance(constant.value, str), self._get_source_location(constant)
-
-        node_id = constant.value
+        assert isinstance(
+            call.args[0], (ast.Constant, ast.Attribute)
+        ), self._get_source_location(call.args[0])
+        if isinstance(call.args[0], ast.Constant):
+            constant = call.args[0]
+            assert constant.value is None, self._get_source_location(constant)
+            node_name = None
+        elif isinstance(call.args[0], ast.Attribute):
+            attribute = call.args[0]
+            node_name = attribute.attr
+        else:
+            assert False
 
         return Next(
             source_location=self._get_source_location(call),
-            node_id=node_id,
+            node_name=node_name,
         )
 
     def _get_set(self, return_value: ast.expr) -> Set:
@@ -424,9 +433,10 @@ class Parser:
         op = constant.value
 
         if isinstance(call.args[2], ast.List):
+            list1 = call.args[2]
             values = []
 
-            for constant in call.args[2].elts:
+            for constant in list1.elts:
                 assert isinstance(constant, ast.Constant), self._get_source_location(
                     constant
                 )

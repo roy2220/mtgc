@@ -8,13 +8,15 @@ P = ParamSpec("P")
 def TABLE_PIPELINE(component_name: str) -> Callable[[type], type]:
     def wrapper(c: type) -> type:
         p = parser.Parser()
-        p.get_pipeline(c)
+        print(p.get_pipeline(c))
         return c
 
     return wrapper
 
 
-def NODE(node_id: str) -> Callable[[Callable[P, "Next"]], Callable[P, "Next"]]:
+def NODE(
+    bound_component_name: str,
+) -> Callable[[Callable[P, "Next"]], Callable[P, "Next"]]:
     def wrapper(f: Callable[P, "Next"]) -> Callable[P, "Next"]:
         return f
 
@@ -22,7 +24,7 @@ def NODE(node_id: str) -> Callable[[Callable[P, "Next"]], Callable[P, "Next"]]:
 
 
 class Next:
-    def __init__(self, node_id: str) -> None:
+    def __init__(self, next_node: Callable[P, "Next"] | None) -> None:
         pass
 
 
