@@ -5,7 +5,7 @@ from src import analyzer, conflux, parser
 class Root:
     @conflux.HEAD()
     def step_1(self) -> conflux.Next:
-        if conflux.Test("MyKey", "eq", 100):
+        if conflux.Test("MyKey", "eq", conflux.Value("OtherKey")):
             return conflux.Next(self.step_3)
         elif conflux.Test("MyKey", "in", [200, 300]):
             return conflux.Next(self.step_4)
@@ -16,24 +16,24 @@ class Root:
         else:
             return conflux.Next(self.step_2)
 
-    @conflux.NODE("xxx")
+    @conflux.NODE("raw_postback")
     def step_2(self) -> conflux.Next:
         return conflux.Next(self.step_3)
 
-    @conflux.NODE("yyy")
+    @conflux.NODE("raw_postback")
     def step_3(self) -> conflux.Next:
         return conflux.Next(self.step_4)
 
-    @conflux.NODE("yyy")
+    @conflux.NODE("raw_postback")
     def step_4(self) -> conflux.Next:
         return conflux.Next(self.step_5)
 
-    @conflux.NODE("xxx")
+    @conflux.NODE("raw_postback")
     def step_5(self) -> conflux.Next:
         return conflux.Next(None)
 
 
-@conflux.TABLE_MATCH_TRANSFORM("参数解析")
+@conflux.TABLE_MATCH_TRANSFORM("raw_postback")
 class RawPostback:
     @conflux.BUSINESS_UNIT("参数解析")
     def RawPostback(self) -> conflux.Set:

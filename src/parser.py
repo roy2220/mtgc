@@ -92,7 +92,12 @@ class TestCondition:
     source_location: SourceLocation
     key: str
     op: str
-    values: list[bool | int | float | str]
+    value: "bool | int | float | str | list[bool | int | float | str] | Value"
+
+
+@dataclass(kw_only=True)
+class Value:
+    from_key: str
 
 
 @dataclass(kw_only=True)
@@ -447,9 +452,22 @@ class Parser:
 
         op = constant.value
 
-        if isinstance(call.args[2], ast.List):
+        assert isinstance(
+            call.args[2], (ast.Constant, ast.List, ast.Call)
+        ), self._get_source_location(call.args[2])
+        if isinstance(call.args[2], ast.Constant):
+            constant = call.args[2]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(
+                constant.value, (bool, int, float, str)
+            ), self._get_source_location(constant)
+
+            value = constant.value
+        elif isinstance(call.args[2], ast.List):
             list1 = call.args[2]
-            values = []
+            value = []
 
             for constant in list1.elts:
                 assert isinstance(constant, ast.Constant), self._get_source_location(
@@ -459,23 +477,30 @@ class Parser:
                     constant.value, (bool, int, float, str)
                 ), self._get_source_location(constant)
 
-                values.append(constant.value)
-        else:
-            constant = call.args[2]
+                value.append(constant.value)
+        elif isinstance(call.args[2], ast.Call):
+            call2 = call.args[2]
+            attribute = call2.func
+            assert isinstance(attribute, ast.Attribute), self._get_source_location(
+                attribute
+            )
+            assert attribute.attr == "Value", self._get_source_location(attribute)
+            assert len(call2.args) == 1, self._get_source_location(call2)
+            constant = call2.args[0]
             assert isinstance(constant, ast.Constant), self._get_source_location(
                 constant
             )
-            assert isinstance(
-                constant.value, (bool, int, float, str)
-            ), self._get_source_location(constant)
+            assert isinstance(constant.value, str), self._get_source_location(constant)
 
-            values = [constant.value]
+            value = Value(from_key=constant.value)
+        else:
+            assert False
 
         return TestCondition(
             source_location=self._get_source_location(call),
             key=key,
             op=op,
-            values=values,
+            value=value,
         )
 
     def _get_source_location(self, x: ast.AST) -> SourceLocation:
