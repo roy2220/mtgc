@@ -3,7 +3,7 @@ from src import conflux
 
 @conflux.TABLE_PIPELINE("root")
 class Root:
-    @conflux.NODE("xxx")
+    @conflux.FIRST_NODE()
     def step_1(self) -> conflux.Next:
         if conflux.Test("MyKey", "eq", 100):
             return conflux.Next(self.step_3)
@@ -28,7 +28,7 @@ class Root:
     def step_4(self) -> conflux.Next:
         return conflux.Next(self.step_5)
 
-    @conflux.NODE("yyy")
+    @conflux.NODE("xxx")
     def step_5(self) -> conflux.Next:
         return conflux.Next(None)
 

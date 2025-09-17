@@ -1,8 +1,6 @@
-from typing import Callable, ParamSpec
+from typing import Any, Callable, ParamSpec
 
 from . import parser
-
-P = ParamSpec("P")
 
 
 def TABLE_PIPELINE(component_name: str) -> Callable[[type], type]:
@@ -14,17 +12,24 @@ def TABLE_PIPELINE(component_name: str) -> Callable[[type], type]:
     return wrapper
 
 
+def FIRST_NODE() -> Callable[[Callable[[Any], "Next"]], Callable[[Any], "Next"]]:
+    def wrapper(f: Callable[[Any], "Next"]) -> Callable[[Any], "Next"]:
+        return f
+
+    return wrapper
+
+
 def NODE(
     bound_component_name: str,
-) -> Callable[[Callable[P, "Next"]], Callable[P, "Next"]]:
-    def wrapper(f: Callable[P, "Next"]) -> Callable[P, "Next"]:
+) -> Callable[[Callable[[Any], "Next"]], Callable[[Any], "Next"]]:
+    def wrapper(f: Callable[[Any], "Next"]) -> Callable[[Any], "Next"]:
         return f
 
     return wrapper
 
 
 class Next:
-    def __init__(self, next_node: Callable[P, "Next"] | None) -> None:
+    def __init__(self, next_node: Callable[[], "Next"] | None) -> None:
         pass
 
 
@@ -39,8 +44,8 @@ def TABLE_MATCH_TRANSFORM(component_name: str) -> Callable[[type], type]:
 
 def BUSINESS_UNIT(
     business_unit: str,
-) -> Callable[[Callable[P, "Set"]], Callable[P, "Set"]]:
-    def wrapper(f: Callable[P, "Set"]) -> Callable[P, "Set"]:
+) -> Callable[[Callable[[Any], "Set"]], Callable[[Any], "Set"]]:
+    def wrapper(f: Callable[[Any], "Set"]) -> Callable[[Any], "Set"]:
         return f
 
     return wrapper
