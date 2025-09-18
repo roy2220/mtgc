@@ -60,18 +60,8 @@ class Set:
 
 
 class Test:
-    def __init__(
-        self,
-        key: str,
-        op: str,
-        value: "bool | int | float | str | list[bool | int | float | str] | Value",
-    ) -> None:
+    def __init__(self, key: str, expr: str) -> None:
         pass
 
     def __bool__(self) -> bool:
         return True
-
-
-class Value:
-    def __init__(self, from_key: str) -> None:
-        pass

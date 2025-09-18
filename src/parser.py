@@ -1,9 +1,6 @@
 import ast
-import enum
 import inspect
 from dataclasses import dataclass
-
-from sympy.logic import boolalg
 
 
 @dataclass(kw_only=True)
@@ -31,10 +28,6 @@ class Node:
     bound_component_name: str | None
     body: list["Statement"]
 
-    # for analysis
-    next_statement: "Statement | None" = None
-    return_points: "ReturnPoint | None" = None
-
 
 @dataclass(kw_only=True)
 class MatchTransform:
@@ -49,10 +42,6 @@ class BusinessUnit:
     business_unit: str
     body: list["Statement"]
 
-    # for analysis
-    next_statement: "Statement | None" = None
-    return_points: "ReturnPoint | None" = None
-
 
 type Statement = "ReturnStatement | IfStatement"
 
@@ -62,9 +51,6 @@ class ReturnStatement:
     source_location: SourceLocation
     next: "Next"  # for Node
     set: "Set"  # for MatchTransform
-
-    # for analysis
-    return_index: int = -1
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_return_statement(self)
@@ -90,23 +76,9 @@ class IfStatement:
     source_location: SourceLocation
     condition: "Condition"
     body: list[Statement]
-    else_clause: "ElseClause"
-
-    # for analysis
-    next_statement: Statement | None = None
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_if_statement(self)
-
-
-@dataclass(kw_only=True)
-class ElseClause:
-    # if source_location is None, no ElseClause present
-    source_location: SourceLocation | None
-    body: list[Statement]
-
-    # for analysis
-    next_statement: Statement | None = None
 
 
 type Condition = "TestCondition | CompositeCondition"
@@ -116,8 +88,7 @@ type Condition = "TestCondition | CompositeCondition"
 class TestCondition:
     source_location: SourceLocation
     key: str
-    op: str
-    value: "bool | int | float | str | list[bool | int | float | str] | Value"
+    expr: str
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_test_condition(self)
@@ -131,18 +102,11 @@ class Value:
 @dataclass(kw_only=True)
 class CompositeCondition:
     source_location: SourceLocation
-    logical_op_type: "LogicalOpType"
     condition_1: Condition
-    condition_2: Condition | None
+    condition_2: Condition
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_composite_condition(self)
-
-
-class LogicalOpType(enum.IntEnum):
-    LOGICAL_NOT = enum.auto()
-    LOGICAL_OR = enum.auto()
-    LOGICAL_AND = enum.auto()
 
 
 class Visitor:
@@ -429,56 +393,26 @@ class Parser:
     def _get_if_statement(self, if1: ast.If) -> IfStatement:
         condition = self._get_condition(if1.test)
         body = self._get_body(if1.body)
-        if len(if1.orelse) == 0:
-            else_clause = ElseClause(source_location=None, body=[])
-        else:
-            else_clause = ElseClause(
-                source_location=self._get_source_location(if1.orelse[0]),
-                body=self._get_body(if1.orelse),
-            )
+        assert len(if1.orelse) == 0, self._get_source_location(if1.orelse[0])
         return IfStatement(
             source_location=self._get_source_location(if1),
             condition=condition,
             body=body,
-            else_clause=else_clause,
         )
 
     def _get_condition(self, test: ast.expr) -> Condition:
-        assert isinstance(
-            test, (ast.Call, ast.UnaryOp, ast.BoolOp)
-        ), self._get_source_location(test)
+        assert isinstance(test, (ast.Call, ast.BoolOp)), self._get_source_location(test)
 
         if isinstance(test, ast.Call):
             return self._get_test_condition(test)
-        if isinstance(test, ast.UnaryOp):
-            assert isinstance(test.op, ast.Not), self._get_source_location(test)
+        if isinstance(test, ast.BoolOp):
+            assert isinstance(test.op, ast.And), self._get_source_location(test)
+            assert len(test.values) == 2, self._get_source_location(test)
             return CompositeCondition(
                 source_location=self._get_source_location(test),
-                logical_op_type=LogicalOpType.LOGICAL_NOT,
-                condition_1=self._get_condition(test.operand),
-                condition_2=None,
+                condition_1=self._get_condition(test.values[0]),
+                condition_2=self._get_condition(test.values[1]),
             )
-        if isinstance(test, ast.BoolOp):
-            assert isinstance(test.op, (ast.Or, ast.And)), self._get_source_location(
-                test
-            )
-            assert len(test.values) == 2, self._get_source_location(test)
-            if isinstance(test.op, ast.Or):
-                return CompositeCondition(
-                    source_location=self._get_source_location(test),
-                    logical_op_type=LogicalOpType.LOGICAL_OR,
-                    condition_1=self._get_condition(test.values[0]),
-                    condition_2=self._get_condition(test.values[1]),
-                )
-            elif isinstance(test.op, ast.And):
-                return CompositeCondition(
-                    source_location=self._get_source_location(test),
-                    logical_op_type=LogicalOpType.LOGICAL_AND,
-                    condition_1=self._get_condition(test.values[0]),
-                    condition_2=self._get_condition(test.values[1]),
-                )
-            else:
-                assert False
         else:
             assert False
 
@@ -488,7 +422,7 @@ class Parser:
             attribute
         )
         assert attribute.attr == "Test", self._get_source_location(attribute)
-        assert len(call.args) == 3, self._get_source_location(call)
+        assert len(call.args) == 2, self._get_source_location(call)
         constant = call.args[0]
         assert isinstance(constant, ast.Constant), self._get_source_location(constant)
         assert isinstance(constant.value, str), self._get_source_location(constant)
@@ -499,54 +433,12 @@ class Parser:
         assert isinstance(constant, ast.Constant), self._get_source_location(constant)
         assert isinstance(constant.value, str), self._get_source_location(constant)
 
-        op = constant.value
-
-        assert isinstance(
-            call.args[2], (ast.Constant, ast.List, ast.Call)
-        ), self._get_source_location(call.args[2])
-        if isinstance(call.args[2], ast.Constant):
-            constant = call.args[2]
-            assert isinstance(
-                constant.value, (bool, int, float, str)
-            ), self._get_source_location(constant)
-
-            value = constant.value
-        elif isinstance(call.args[2], ast.List):
-            list1 = call.args[2]
-            value = []
-
-            for constant in list1.elts:
-                assert isinstance(constant, ast.Constant), self._get_source_location(
-                    constant
-                )
-                assert isinstance(
-                    constant.value, (bool, int, float, str)
-                ), self._get_source_location(constant)
-
-                value.append(constant.value)
-        elif isinstance(call.args[2], ast.Call):
-            call2 = call.args[2]
-            attribute = call2.func
-            assert isinstance(attribute, ast.Attribute), self._get_source_location(
-                attribute
-            )
-            assert attribute.attr == "Value", self._get_source_location(attribute)
-            assert len(call2.args) == 1, self._get_source_location(call2)
-            constant = call2.args[0]
-            assert isinstance(constant, ast.Constant), self._get_source_location(
-                constant
-            )
-            assert isinstance(constant.value, str), self._get_source_location(constant)
-
-            value = Value(from_key=constant.value)
-        else:
-            assert False
+        expr = constant.value
 
         return TestCondition(
             source_location=self._get_source_location(call),
             key=key,
-            op=op,
-            value=value,
+            expr=expr,
         )
 
     def _get_source_location(self, x: ast.AST) -> SourceLocation:
@@ -555,12 +447,3 @@ class Parser:
             line_number=self._first_line_number + x.lineno - 1,  # type: ignore
             column_number=x.col_offset + 1,  # type: ignore
         )
-
-
-@dataclass(kw_only=True)
-class ReturnPoint:
-    source_location: SourceLocation
-    next: Next  # for Node
-    set: Set  # for MatchTransform
-
-    conditions: list[boolalg.Boolean]

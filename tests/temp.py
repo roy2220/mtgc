@@ -1,3 +1,6 @@
+import dataclasses
+import json
+
 from src import analyzer, conflux, parser
 
 
@@ -5,17 +8,18 @@ from src import analyzer, conflux, parser
 class Root:
     @conflux.HEAD()
     def step_1(self) -> conflux.Next:
-        if conflux.Test("MyKey", "eq", conflux.Value("OtherKey")):
+        if conflux.Test("MyKey", "eq 1"):
             return conflux.Next(self.step_3)
-        elif conflux.Test("MyKey", "in", [200, 300]):
+
+        if conflux.Test("MyKey", "in [200, 300]"):
             return conflux.Next(self.step_4)
-        elif conflux.Test("MyKey", "eq", 100) or not (
-            conflux.Test("MyKey", "in", [200, 300])
-            and conflux.Test("MyKey", "eq", "11")
+
+        if conflux.Test("MyKey", "eq 3") and (
+            conflux.Test("MyKey", "eq 4") and conflux.Test("MyKey", "eq 4")
         ):
             return conflux.Next(self.step_5)
-        else:
-            return conflux.Next(self.step_2)
+
+        return conflux.Next(self.step_5)
 
     @conflux.NODE("raw_postback")
     def step_2(self) -> conflux.Next:
@@ -38,15 +42,28 @@ class Root:
 class RawPostback:
     @conflux.BUSINESS_UNIT("参数解析")
     def RawPostback(self) -> conflux.Set:
-        return conflux.Set(
-            "获取所有参数",
-            [
-                (
-                    "RawPostback_AdjustAdMediationPlatform",
-                    'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "adjust_ad_mediation_platform")',
-                ),
-            ],
-        )
+        if conflux.Test("MyKey", "eq 1") and conflux.Test("MyKey", "eq 2"):
+            if conflux.Test("MyKey", "eq 3") and conflux.Test("MyKey", "eq 4"):
+                return conflux.Set(
+                    "获取所有参数",
+                    [
+                        (
+                            "RawPostback_AdjustAdMediationPlatform",
+                            'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "adjust_ad_mediation_platform")',
+                        ),
+                    ],
+                )
+
+            if conflux.Test("MyKey", "eq 5"):
+                return conflux.Set(
+                    "获取所有参数",
+                    [
+                        (
+                            "RawPostback_AdjustAdMediationPlatform",
+                            'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "adjust_ad_mediation_platform")',
+                        ),
+                    ],
+                )
         # return [
         #     conflux.set(
         #         "adjust_ad_mediation_platform参数获取",
@@ -508,3 +525,4 @@ if __name__ == "__main__":
         raw_match_transforms.append(p.get_match_transform(c))
 
     a = analyzer.Analyzer(raw_pipelines, raw_match_transforms)
+    print(json.dumps(dataclasses.asdict(a.bundle), indent=4, check_circular=False))

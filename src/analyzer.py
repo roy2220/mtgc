@@ -32,7 +32,7 @@ class Node:
 
 @dataclass(kw_only=True)
 class NodeRule:
-    test_exprs: list["TestExpr"]
+    test_key_and_expr_pairs: list[tuple[str, str]]
     next_node: Node | None
 
 
@@ -52,14 +52,9 @@ class BusinessUnit:
 
 @dataclass(kw_only=True)
 class BusinessUnitRule:
-    test_exprs: list["TestExpr"]
+    test_key_and_expr_pairs: list[tuple[str, str]]
     business_scenario: str
-    key_and_expr_pairs: list[tuple[str, str]]
-
-
-@dataclass(kw_only=True)
-class TestExpr:
-    pass
+    set_key_and_expr_pairs: list[tuple[str, str]]
 
 
 class Analyzer:
@@ -132,22 +127,43 @@ class Analyzer:
                 raise DuplicateNodeNameError(
                     raw_node.source_location, raw_node.node_name
                 )
-
-            raw_node.next_statement = _P1Analyzer(
-                raw_node.source_location, raw_node.body
-            ).next_statement
-
             nodes[raw_node.node_name] = Node(
                 source_location=raw_node.source_location,
                 node_name=raw_node.node_name,
                 bound_component=None,
-                node_rules=self._get_node_rules(raw_node.body),
+                node_rules=[],
             )
             self._raw_nodes.append(raw_node)
+
+        for raw_node in raw_nodes:
+            node = nodes[raw_node.node_name]
+            node.node_rules = self._get_node_rules(raw_node.body, nodes)
+
         return list(nodes.values())
 
-    def _get_node_rules(self, body: list[parser.Statement]) -> list[NodeRule]:
-        return []
+    def _get_node_rules(
+        self, statements: list[parser.Statement], nodes: dict[str, Node]
+    ) -> list[NodeRule]:
+        return_points = ReturnPointCollector(statements).return_points
+        node_rules: list[NodeRule] = []
+        for return_point in return_points:
+            next = return_point.return_statement.next
+            assert next.source_location is not None
+            next_node = None
+            if next.next_node_name is not None:
+                next_node = nodes.get(next.next_node_name)
+                if next_node is None:
+                    raise NodeNotFoundError(
+                        next.source_location,
+                        next.next_node_name,
+                    )
+            node_rules.append(
+                NodeRule(
+                    test_key_and_expr_pairs=return_point.test_key_and_expr_pairs,
+                    next_node=next_node,
+                )
+            )
+        return node_rules
 
     def _get_match_transforms(self) -> list[MatchTransform]:
         match_transforms: list[MatchTransform] = []
@@ -183,81 +199,74 @@ class Analyzer:
                     raw_business_unit.body
                 ),
             )
-
-            raw_business_unit.next_statement = _P1Analyzer(
-                raw_business_unit.source_location, raw_business_unit.body
-            ).next_statement
-
             business_units.append(business_unit)
         return business_units
 
     def _get_business_unit_rules(
-        self, body: list[parser.Statement]
+        self, statements: list[parser.Statement]
     ) -> list[BusinessUnitRule]:
-        return []
+        return_points = ReturnPointCollector(statements).return_points
+        business_unit_rules: list[BusinessUnitRule] = []
+        for return_point in return_points:
+            set = return_point.return_statement.set
+            assert set.source_location is not None
+            business_unit_rules.append(
+                BusinessUnitRule(
+                    test_key_and_expr_pairs=return_point.test_key_and_expr_pairs,
+                    business_scenario=set.business_scenario,
+                    set_key_and_expr_pairs=set.key_and_expr_pairs,
+                )
+            )
+        return business_unit_rules
 
 
-class _P1Analyzer(parser.Visitor):
-    def __init__(
-        self, source_location: SourceLocation, body: list[parser.Statement]
-    ) -> None:
-        self._source_location = source_location
-        self._body = body
-        self._next_statement_setter_stack: list[Callable[[parser.Statement], None]] = []
+@dataclass(kw_only=True)
+class ReturnPoint:
+    test_key_and_expr_pairs: list[tuple[str, str]]
+    return_statement: parser.ReturnStatement
 
-        self.next_statement = self._run()
 
-    def _run(self) -> parser.Statement:
-        next_statement = None
+class ReturnPointCollector(parser.Visitor):
+    def __init__(self, statements: list[parser.Statement]) -> None:
+        self._statements = statements
+        self._return_points: list[ReturnPoint] = []
+        self._test_key_and_expr_pairs: list[tuple[str, str]] = []
 
-        def set_next_statement(s: parser.Statement) -> None:
-            nonlocal next_statement
-            next_statement = s
+        self._run()
 
-        self._visit_body(set_next_statement, self._body)
+    @property
+    def return_points(self) -> list[ReturnPoint]:
+        return self._return_points
 
-        if len(self._next_statement_setter_stack) >= 1:
-            raise MissingReturnStatementError(self._source_location)
-
-        assert next_statement is not None
-        return next_statement
-
-    class _Return(Exception):
-        pass
-
-    def _visit_body(
-        self,
-        set_next_statement: Callable[[parser.Statement], None],
-        body: list[parser.Statement],
-    ) -> None:
-        i = len(self._next_statement_setter_stack)
-        self._next_statement_setter_stack.append(set_next_statement)
-
-        for s in body:
-            for f in self._next_statement_setter_stack[i:]:
-                f(s)
-            del self._next_statement_setter_stack[i:]
-
-            try:
-                s.accept_visit(self)
-            except self._Return:
-                return
+    def _run(self) -> None:
+        for statement in self._statements:
+            statement.accept_visit(self)
 
     def visit_return_statement(self, return_statement: parser.ReturnStatement) -> None:
-        raise self._Return()
+        self._return_points.append(
+            ReturnPoint(
+                test_key_and_expr_pairs=self._test_key_and_expr_pairs.copy(),
+                return_statement=return_statement,
+            )
+        )
 
     def visit_if_statement(self, if_statement: parser.IfStatement) -> None:
-        def set_next_statement(s: parser.Statement) -> None:
-            if_statement.next_statement = s
+        i = len(self._test_key_and_expr_pairs)
 
-        self._visit_body(set_next_statement, if_statement.body)
+        if_statement.condition.accept_visit(self)
+        for statement in if_statement.body:
+            statement.accept_visit(self)
 
-        if (else_clause := if_statement.else_clause).source_location is not None:
+        del self._test_key_and_expr_pairs[i:]
 
-            def set_next_statement(s: parser.Statement) -> None:
-                else_clause.next_statement = s
+    def visit_test_condition(self, test_condition: parser.TestCondition) -> None:
+        self._test_key_and_expr_pairs.append((test_condition.key, test_condition.expr))
 
-            self._visit_body(set_next_statement, else_clause.body)
+    def visit_composite_condition(
+        self, composite_condition: parser.CompositeCondition
+    ) -> None:
+        composite_condition.condition_1.accept_visit(self)
+        composite_condition.condition_2.accept_visit(self)
 
 
 class Error(Exception):
@@ -302,6 +311,6 @@ class HeadExpectedError(Error):
         )
 
 
-class MissingReturnStatementError(Error):
-    def __init__(self, source_location: SourceLocation) -> None:
-        super().__init__(source_location, f"missing return statement")
+class NodeNotFoundError(Error):
+    def __init__(self, source_location: SourceLocation, node_name: str) -> None:
+        super().__init__(source_location, f"node {node_name!r} not found")
