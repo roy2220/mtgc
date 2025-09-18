@@ -17,6 +17,7 @@ class SourceLocation:
 class Pipeline:
     source_location: SourceLocation
     component_name: str
+    description: str
     nodes: list["Node"]
 
 
@@ -33,6 +34,7 @@ class Node:
 class MatchTransform:
     source_location: SourceLocation
     component_name: str
+    description: str
     business_units: list["BusinessUnit"]
 
 
@@ -139,7 +141,7 @@ class Parser:
 
         class_def = module.body[0]
         assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
-        assert len(class_def.decorator_list) == 1, self._get_source_location(class_def)
+        assert len(class_def.decorator_list) >= 1, self._get_source_location(class_def)
         call = class_def.decorator_list[0]
         assert isinstance(call, ast.Call), self._get_source_location(call)
         attribute = call.func
@@ -153,10 +155,28 @@ class Parser:
         assert isinstance(constant.value, str), self._get_source_location(constant)
 
         component_name = constant.value
+        description = ""
+
+        if len(class_def.decorator_list) >= 2:
+            call = class_def.decorator_list[1]
+            assert isinstance(call, ast.Call), self._get_source_location(call)
+            attribute = call.func
+            assert isinstance(attribute, ast.Attribute), self._get_source_location(
+                attribute
+            )
+            assert attribute.attr == "describe", self._get_source_location(attribute)
+            assert len(call.args) == 1, self._get_source_location(call)
+            constant = call.args[0]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+            description = constant.value
 
         return Pipeline(
             source_location=self._get_source_location(class_def),
             component_name=component_name,
+            description=description,
             nodes=self._get_nodes(class_def.body),
         )
 
@@ -168,7 +188,7 @@ class Parser:
 
         class_def = module.body[0]
         assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
-        assert len(class_def.decorator_list) == 1, self._get_source_location(class_def)
+        assert len(class_def.decorator_list) >= 1, self._get_source_location(class_def)
         call = class_def.decorator_list[0]
         assert isinstance(call, ast.Call), self._get_source_location(call)
         attribute = call.func
@@ -184,10 +204,28 @@ class Parser:
         assert isinstance(constant.value, str), self._get_source_location(constant)
 
         component_name = constant.value
+        description = ""
+
+        if len(class_def.decorator_list) >= 2:
+            call = class_def.decorator_list[1]
+            assert isinstance(call, ast.Call), self._get_source_location(call)
+            attribute = call.func
+            assert isinstance(attribute, ast.Attribute), self._get_source_location(
+                attribute
+            )
+            assert attribute.attr == "describe", self._get_source_location(attribute)
+            assert len(call.args) == 1, self._get_source_location(call)
+            constant = call.args[0]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+            description = constant.value
 
         return MatchTransform(
             source_location=self._get_source_location(class_def),
             component_name=component_name,
+            description=description,
             business_units=self._get_business_units(class_def.body),
         )
 

@@ -5,6 +5,7 @@ from src import analyzer, conflux, generator, parser
 
 
 @conflux.TABLE_PIPELINE("root")
+@conflux.describe("组件0")
 class Root:
     @conflux.HEAD()
     def node_1(self) -> conflux.Next:
@@ -22,41 +23,43 @@ class Root:
 
 
 @conflux.TABLE_MATCH_TRANSFORM("mt_1")
+@conflux.describe("组件1")
 class Mt1:
-    @conflux.BUSINESS_UNIT("test1")
+    @conflux.BUSINESS_UNIT("单元1")
     def test1(self) -> conflux.Set:
 
         if conflux.Test("MyField", 'eq "yes"'):
-            return conflux.Set("测试1", [("MyField", '"Y"')])
+            return conflux.Set("场景1", [("MyField", '"Y"')])
 
-        return conflux.Set("测试2", [("MyField", '"N"')])
+        return conflux.Set("场景2", [("MyField", '"N"')])
 
-    @conflux.BUSINESS_UNIT("test2")
+    @conflux.BUSINESS_UNIT("单元2")
     def test2(self) -> conflux.Set:
 
         if conflux.Test("MyField", 'eq "Y"'):
-            return conflux.Set("测试3", [("MyField", '"yy"')])
+            return conflux.Set("场景3", [("MyField", '"yy"')])
 
-        return conflux.Set("测试4", [("MyField", '"nn"')])
+        return conflux.Set("场景4", [("MyField", '"nn"')])
 
 
 @conflux.TABLE_MATCH_TRANSFORM("mt_2")
+@conflux.describe("组件2")
 class Mt2:
-    @conflux.BUSINESS_UNIT("test1")
+    @conflux.BUSINESS_UNIT("单元3")
     def test1(self) -> conflux.Set:
 
         if conflux.Test("MyField", 'eq "yes"'):
-            return conflux.Set("测试1", [("MyField", '"Y"')])
+            return conflux.Set("场景5", [("MyField", '"Y"')])
 
-        return conflux.Set("测试2", [("MyField", '"N"')])
+        return conflux.Set("场景6", [("MyField", '"N"')])
 
-    @conflux.BUSINESS_UNIT("test2")
+    @conflux.BUSINESS_UNIT("单元5")
     def test2(self) -> conflux.Set:
 
         if conflux.Test("MyField", 'eq "Y"'):
-            return conflux.Set("测试3", [("MyField", '"yy"')])
+            return conflux.Set("场景7", [("MyField", '"yy"')])
 
-        return conflux.Set("测试4", [("MyField", '"nn"')])
+        return conflux.Set("场景8", [("MyField", '"nn"')])
 
         # return [
         #     conflux.set(

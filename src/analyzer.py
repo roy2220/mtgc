@@ -19,6 +19,7 @@ type Component = "Pipeline | MatchTransform"
 class Pipeline:
     source_location: SourceLocation
     component_name: str
+    description: str
     nodes: list["Node"]
 
 
@@ -41,6 +42,7 @@ class NodeRule:
 class MatchTransform:
     source_location: SourceLocation
     component_name: str
+    description: str
     business_units: list["BusinessUnit"]
 
 
@@ -109,6 +111,7 @@ class Analyzer:
             pipeline = Pipeline(
                 source_location=raw_pipeline.source_location,
                 component_name=raw_pipeline.component_name,
+                description=raw_pipeline.description,
                 nodes=self._get_nodes(raw_pipeline.nodes),
             )
             self._components[raw_pipeline.component_name] = pipeline
@@ -184,6 +187,7 @@ class Analyzer:
             match_transform = MatchTransform(
                 source_location=raw_match_transform.source_location,
                 component_name=raw_match_transform.component_name,
+                description=raw_match_transform.description,
                 business_units=self._get_business_units(
                     raw_match_transform.business_units
                 ),

@@ -50,6 +50,13 @@ def BUSINESS_UNIT(
     return wrapper
 
 
+def describe(descriptions: str) -> Callable[[type], type]:
+    def wrapper(c: type) -> type:
+        return c
+
+    return wrapper
+
+
 class Set:
     def __init__(
         self,
