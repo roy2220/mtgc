@@ -64,7 +64,7 @@ class ReturnStatement:
     set: "Set"  # for MatchTransform
 
     # for analysis
-    index: int = -1
+    return_index: int = -1
 
     def accept_visit(self, visitor: "Visitor") -> None:
         visitor.visit_return_statement(self)
