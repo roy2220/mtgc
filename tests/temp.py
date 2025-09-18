@@ -1,69 +1,63 @@
 import dataclasses
 import json
 
-from src import analyzer, conflux, parser
+from src import analyzer, conflux, generator, parser
 
 
 @conflux.TABLE_PIPELINE("root")
 class Root:
     @conflux.HEAD()
-    def step_1(self) -> conflux.Next:
-        if conflux.Test("MyKey", "eq 1"):
-            return conflux.Next(self.step_3)
+    def node_1(self) -> conflux.Next:
+        if conflux.Test("MyField", 'eq "yes"'):
+            return conflux.Next(self.node_2)
+        return conflux.Next(self.node_3)
 
-        if conflux.Test("MyKey", "in [200, 300]"):
-            return conflux.Next(self.step_4)
+    @conflux.NODE("mt_1")
+    def node_2(self) -> conflux.Next:
+        return conflux.Next(self.node_3)
 
-        if conflux.Test("MyKey", "eq 3") and (
-            conflux.Test("MyKey", "eq 4") and conflux.Test("MyKey", "eq 4")
-        ):
-            return conflux.Next(self.step_5)
-
-        return conflux.Next(self.step_5)
-
-    @conflux.NODE("raw_postback")
-    def step_2(self) -> conflux.Next:
-        return conflux.Next(self.step_3)
-
-    @conflux.NODE("raw_postback")
-    def step_3(self) -> conflux.Next:
-        return conflux.Next(self.step_4)
-
-    @conflux.NODE("raw_postback")
-    def step_4(self) -> conflux.Next:
-        return conflux.Next(self.step_5)
-
-    @conflux.NODE("raw_postback")
-    def step_5(self) -> conflux.Next:
+    @conflux.NODE("mt_2")
+    def node_3(self) -> conflux.Next:
         return conflux.Next(None)
 
 
-@conflux.TABLE_MATCH_TRANSFORM("raw_postback")
-class RawPostback:
-    @conflux.BUSINESS_UNIT("参数解析")
-    def RawPostback(self) -> conflux.Set:
-        if conflux.Test("MyKey", "eq 1") and conflux.Test("MyKey", "eq 2"):
-            if conflux.Test("MyKey", "eq 3") and conflux.Test("MyKey", "eq 4"):
-                return conflux.Set(
-                    "获取所有参数",
-                    [
-                        (
-                            "RawPostback_AdjustAdMediationPlatform",
-                            'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "adjust_ad_mediation_platform")',
-                        ),
-                    ],
-                )
+@conflux.TABLE_MATCH_TRANSFORM("mt_1")
+class Mt1:
+    @conflux.BUSINESS_UNIT("test1")
+    def test1(self) -> conflux.Set:
 
-            if conflux.Test("MyKey", "eq 5"):
-                return conflux.Set(
-                    "获取所有参数",
-                    [
-                        (
-                            "RawPostback_AdjustAdMediationPlatform",
-                            'map_get(RawPostback_StubHttpRequestMessage_Payload_UrlQuery, "adjust_ad_mediation_platform")',
-                        ),
-                    ],
-                )
+        if conflux.Test("MyField", 'eq "yes"'):
+            return conflux.Set("测试1", [("MyField", '"Y"')])
+
+        return conflux.Set("测试2", [("MyField", '"N"')])
+
+    @conflux.BUSINESS_UNIT("test2")
+    def test2(self) -> conflux.Set:
+
+        if conflux.Test("MyField", 'eq "Y"'):
+            return conflux.Set("测试3", [("MyField", '"yy"')])
+
+        return conflux.Set("测试4", [("MyField", '"nn"')])
+
+
+@conflux.TABLE_MATCH_TRANSFORM("mt_2")
+class Mt2:
+    @conflux.BUSINESS_UNIT("test1")
+    def test1(self) -> conflux.Set:
+
+        if conflux.Test("MyField", 'eq "yes"'):
+            return conflux.Set("测试1", [("MyField", '"Y"')])
+
+        return conflux.Set("测试2", [("MyField", '"N"')])
+
+    @conflux.BUSINESS_UNIT("test2")
+    def test2(self) -> conflux.Set:
+
+        if conflux.Test("MyField", 'eq "Y"'):
+            return conflux.Set("测试3", [("MyField", '"yy"')])
+
+        return conflux.Set("测试4", [("MyField", '"nn"')])
+
         # return [
         #     conflux.set(
         #         "adjust_ad_mediation_platform参数获取",
@@ -525,4 +519,10 @@ if __name__ == "__main__":
         raw_match_transforms.append(p.get_match_transform(c))
 
     a = analyzer.Analyzer(raw_pipelines, raw_match_transforms)
-    print(json.dumps(dataclasses.asdict(a.bundle), indent=4, check_circular=False))
+    g = generator.Generator(
+        app_id="YangOuyangLearning",
+        warehouse_name="YangOuyangLearningWarehouse",
+        bundle=a.bundle,
+    )
+
+    print(json.dumps(g.spec, indent=4, check_circular=False))

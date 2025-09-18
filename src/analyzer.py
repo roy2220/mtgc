@@ -26,6 +26,7 @@ class Pipeline:
 class Node:
     source_location: SourceLocation
     node_name: str
+    is_head: bool
     bound_component: Component | None
     node_rules: list["NodeRule"]
 
@@ -69,16 +70,20 @@ class Analyzer:
         self._raw_nodes: list[parser.Node] = []
         self._components: dict[str, Component] = {}
 
-        self.bundle = self._run()
+        self._run()
 
-    def _run(self) -> Bundle:
-        bundle = Bundle(
+    @property
+    def bundle(self) -> Bundle:
+        return self._bundle
+
+    def _run(self) -> None:
+        self._bundle = Bundle(
             pipelines=self._get_pipelines(),
             match_transforms=self._get_match_transforms(),
         )
 
         raw_node_index = 0
-        for pipeline in bundle.pipelines:
+        for pipeline in self._bundle.pipelines:
             for node in pipeline.nodes:
                 raw_node = self._raw_nodes[raw_node_index]
                 if raw_node.bound_component_name is not None:
@@ -91,8 +96,6 @@ class Analyzer:
                         )
                     node.bound_component = bound_component
                 raw_node_index += 1
-
-        return bundle
 
     def _get_pipelines(self) -> list[Pipeline]:
         pipelines: list[Pipeline] = []
@@ -119,6 +122,8 @@ class Analyzer:
                 if not raw_node.is_head:
                     raise HeadExpectedError(raw_node.source_location)
             else:
+                if raw_node.is_head:
+                    raise HeadUnexpectedError(raw_node.source_location)
                 if raw_node.bound_component_name == "":
                     raise EmptyComponentNameError(raw_node.source_location)
             if raw_node.node_name == "":
@@ -130,6 +135,7 @@ class Analyzer:
             nodes[raw_node.node_name] = Node(
                 source_location=raw_node.source_location,
                 node_name=raw_node.node_name,
+                is_head=raw_node.is_head,
                 bound_component=None,
                 node_rules=[],
             )
@@ -308,6 +314,14 @@ class HeadExpectedError(Error):
     def __init__(self, source_location: SourceLocation) -> None:
         super().__init__(
             source_location, f"the first node in the pipeline should be HEAD"
+        )
+
+
+class HeadUnexpectedError(Error):
+    def __init__(self, source_location: SourceLocation) -> None:
+        super().__init__(
+            source_location,
+            f"HEAD should only appear as the first node in the pipeline",
         )
 
 
