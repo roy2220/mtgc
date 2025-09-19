@@ -24,7 +24,11 @@ class Generator:
         return self._spec
 
     def _run(self) -> None:
-        components = self._dump_pipelines() + self._dump_match_transforms()
+        components = (
+            self._dump_pipelines()
+            + self._dump_match_transforms()
+            + self._dump_private_components()
+        )
         self._spec = {
             "AppId": self._app_id,
             "WarehouseName": self._warehouse_name,
@@ -157,6 +161,26 @@ class Generator:
                 }
             )
         return match_transform_specs
+
+    def _dump_private_components(self) -> list[dict]:
+        private_component_specs = []
+        for private_component in self._bundle.private_components:
+            private_component_specs.append(
+                {
+                    "id": self._generate_component_id(),
+                    "app_id": self._app_id,
+                    "warehouse_name": self._warehouse_name,
+                    "name": private_component.component_name,
+                    "type": "TABLE_PRIVATE_COMPONENT",
+                    "spec_version": "v1.0.0",
+                    "describe": private_component.description,
+                    "config": {},
+                    "config_version": "v1",
+                    "config_version_seq": 1,
+                    "is_external_dsl": 2,
+                }
+            )
+        return private_component_specs
 
     def _generate_component_id(self) -> int:
         component_id = self._next_component_id

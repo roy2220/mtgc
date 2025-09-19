@@ -10,9 +10,10 @@ from .parser import SourceLocation
 class Bundle:
     pipelines: list["Pipeline"]
     match_transforms: list["MatchTransform"]
+    private_components: list["PrivateComponent"]
 
 
-type Component = "Pipeline | MatchTransform"
+type Component = "Pipeline | MatchTransform | PrivateComponent"
 
 
 @dataclass(kw_only=True)
@@ -60,14 +61,23 @@ class BusinessUnitRule:
     set_key_and_expr_pairs: list[tuple[str, str]]
 
 
+@dataclass(kw_only=True)
+class PrivateComponent:
+    source_location: SourceLocation
+    component_name: str
+    description: str
+
+
 class Analyzer:
     def __init__(
         self,
         raw_pipelines: list[parser.Pipeline],
         raw_match_transforms: list[parser.MatchTransform],
+        raw_private_components: list[parser.PrivateComponent],
     ) -> None:
         self._raw_pipelines = raw_pipelines
         self._raw_match_transforms = raw_match_transforms
+        self._raw_private_components = raw_private_components
 
         self._raw_nodes: list[parser.Node] = []
         self._components: dict[str, Component] = {}
@@ -82,6 +92,7 @@ class Analyzer:
         self._bundle = Bundle(
             pipelines=self._get_pipelines(),
             match_transforms=self._get_match_transforms(),
+            private_components=self._get_private_components(),
         )
 
         raw_node_index = 0
@@ -228,6 +239,25 @@ class Analyzer:
                 )
             )
         return business_unit_rules
+
+    def _get_private_components(self):
+        private_components: list[PrivateComponent] = []
+        for raw_private_component in self._raw_private_components:
+            if raw_private_component.component_name == "":
+                raise EmptyComponentNameError(raw_private_component.source_location)
+            if raw_private_component.component_name in self._components.keys():
+                raise DuplicateComponentNameError(
+                    raw_private_component.source_location,
+                    raw_private_component.component_name,
+                )
+            private_component = PrivateComponent(
+                source_location=raw_private_component.source_location,
+                component_name=raw_private_component.component_name,
+                description=raw_private_component.description,
+            )
+            self._components[raw_private_component.component_name] = private_component
+            private_components.append(private_component)
+        return private_components
 
 
 @dataclass(kw_only=True)

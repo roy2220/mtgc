@@ -5,48 +5,35 @@ from src import analyzer, conflux, generator, parser
 
 
 @conflux.TABLE_PIPELINE()
-@conflux.describe("组件0")
+@conflux.describe("组件root")
 class root:
     @conflux.HEAD()
-    def node_1(self) -> conflux.Next:
+    def start(self) -> conflux.Next:
+        return conflux.Next(self.pc_1)
 
+    @conflux.NODE("pc_1")
+    def pc_1(self) -> conflux.Next:
         if conflux.Test("MyField", 'eq "yes"'):
-            return conflux.Next(self.node_2)
+            return conflux.Next(self.mt_1)
 
-        return conflux.Next(self.node_3)
-
-    @conflux.NODE("pl_1")
-    def node_2(self) -> conflux.Next:
-        return conflux.Next(self.node_3)
-
-    @conflux.NODE("mt_3")
-    def node_3(self) -> conflux.Next:
-        return conflux.Next(None)
-
-
-@conflux.TABLE_PIPELINE()
-@conflux.describe("组件1")
-class pl_1:
-    @conflux.HEAD()
-    def node_1(self) -> conflux.Next:
-        return conflux.Next(self.node_2)
+        return conflux.Next(self.mt_2)
 
     @conflux.NODE("mt_1")
-    def node_2(self) -> conflux.Next:
-        return conflux.Next(self.node_3)
+    def mt_1(self) -> conflux.Next:
+        return conflux.Next(self.mt_2)
 
     @conflux.NODE("mt_2")
-    def node_3(self) -> conflux.Next:
+    def mt_2(self) -> conflux.Next:
         return conflux.Next(None)
 
 
 @conflux.TABLE_MATCH_TRANSFORM()
-@conflux.describe("组件2")
+@conflux.describe("组件1")
 class mt_1:
     @conflux.BUSINESS_UNIT("单元1")
     def _(self) -> conflux.Set:
 
-        if conflux.Test("MyField", 'eq "yes"'):
+        if conflux.Test("MyField", 'eq "yes"') and conflux.Test("In1", 'eq "yes"'):
             return conflux.Set("场景1", ("MyField", '"Y"'))
 
         return conflux.Set("场景2", ("MyField", '"N"'))
@@ -61,7 +48,7 @@ class mt_1:
 
 
 @conflux.TABLE_MATCH_TRANSFORM()
-@conflux.describe("组件3")
+@conflux.describe("组件2")
 class mt_2:
     @conflux.BUSINESS_UNIT("单元a")
     def _(self) -> conflux.Set:
@@ -74,19 +61,35 @@ class mt_2:
         return conflux.Set("场景8", ("MyField", '"nn"'))
 
 
-@conflux.TABLE_MATCH_TRANSFORM()
-@conflux.describe("组件4")
-class mt_3:
-    @conflux.BUSINESS_UNIT("单元a")
-    def _(self) -> conflux.Set:
+@conflux.TABLE_PRIVATE_COMPONENT()
+@conflux.describe("组件5")
+class pc_1:
+    pass
 
-        return conflux.Set("场景b", ("MyField", '"N"'))
 
-    @conflux.BUSINESS_UNIT("单元4")
-    def _(self) -> conflux.Set:
-
-        return conflux.Set("场景8", ("MyField", '"nn"'))
-
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
 
 if __name__ == "__main__":
     raw_pipelines: list[parser.Pipeline] = []
@@ -99,20 +102,19 @@ if __name__ == "__main__":
         p = parser.Parser()
         raw_match_transforms.append(p.get_match_transform(c))
 
-    a = analyzer.Analyzer(raw_pipelines, raw_match_transforms)
+    raw_private_components: list[parser.PrivateComponent] = []
+    for c in conflux.private_component_classes:
+        p = parser.Parser()
+        raw_private_components.append(p.get_private_component(c))
+
+    a = analyzer.Analyzer(raw_pipelines, raw_match_transforms, raw_private_components)
     g = generator.Generator(
         app_id="YangOuyangLearning",
         warehouse_name="YangOuyangLearningWarehouse",
         bundle=a.bundle,
     )
 
-    print(
-        json.dumps(
-            g.spec,
-            indent=4,
-            ensure_ascii=False,
-        )
-    )
+    print(json.dumps(g.spec, indent=4, check_circular=False))
 
 # return [
 #     conflux.set(

@@ -45,6 +45,13 @@ class BusinessUnit:
     body: list["Statement"]
 
 
+@dataclass(kw_only=True)
+class PrivateComponent:
+    source_location: SourceLocation
+    component_name: str
+    description: str
+
+
 type Statement = "ReturnStatement | IfStatement"
 
 
@@ -225,6 +232,52 @@ class Parser:
             business_units=self._get_business_units(class_def.body),
         )
 
+    def get_private_component(self, class1: type) -> PrivateComponent:
+        self._target_type = "PRIVATE_COMPONENT"
+        self._file_name = inspect.getfile(class1)
+        lines, self._first_line_number = inspect.getsourcelines(class1)
+        module = ast.parse("".join(lines), filename=self._file_name)
+
+        class_def = module.body[0]
+        assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
+
+        component_name = class_def.name
+
+        assert len(class_def.decorator_list) >= 1, self._get_source_location(class_def)
+        call = class_def.decorator_list[0]
+        assert isinstance(call, ast.Call), self._get_source_location(call)
+        attribute = call.func
+        assert isinstance(attribute, ast.Attribute), self._get_source_location(
+            attribute
+        )
+        assert attribute.attr == "TABLE_PRIVATE_COMPONENT", self._get_source_location(
+            attribute
+        )
+        assert len(call.args) == 0, self._get_source_location(call)
+        description = ""
+
+        if len(class_def.decorator_list) >= 2:
+            call = class_def.decorator_list[1]
+            assert isinstance(call, ast.Call), self._get_source_location(call)
+            attribute = call.func
+            assert isinstance(attribute, ast.Attribute), self._get_source_location(
+                attribute
+            )
+            assert attribute.attr == "describe", self._get_source_location(attribute)
+            assert len(call.args) == 1, self._get_source_location(call)
+            constant = call.args[0]
+            assert isinstance(constant, ast.Constant), self._get_source_location(
+                constant
+            )
+            assert isinstance(constant.value, str), self._get_source_location(constant)
+            description = constant.value
+
+        return PrivateComponent(
+            source_location=self._get_source_location(class_def),
+            component_name=component_name,
+            description=description,
+        )
+
     def _get_nodes(self, class_body: list[ast.stmt]) -> list[Node]:
         nodes: list[Node] = []
 
@@ -325,8 +378,6 @@ class Parser:
                 body.append(self._get_return_statement(stmt))
             elif isinstance(stmt, ast.If):
                 body.append(self._get_if_statement(stmt))
-            elif isinstance(stmt, ast.Pass):
-                pass
             else:
                 assert False
 

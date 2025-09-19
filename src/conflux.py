@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 pipeline_classes = []
 match_transform_classes = []
+private_component_classes = []
 
 
 def TABLE_PIPELINE() -> Callable[[type], type]:
@@ -28,17 +29,17 @@ def NODE(
     return wrapper
 
 
-class Next:
-    def __init__(self, next_node: Callable[[], "Next"] | None) -> None:
-        pass
-
-
 def TABLE_MATCH_TRANSFORM() -> Callable[[type], type]:
     def wrapper(c: type) -> type:
         match_transform_classes.append(c)
         return c
 
     return wrapper
+
+
+class Next:
+    def __init__(self, next_node: Callable[[], "Next"] | None) -> None:
+        pass
 
 
 def BUSINESS_UNIT(
@@ -52,6 +53,14 @@ def BUSINESS_UNIT(
 
 def describe(descriptions: str) -> Callable[[type], type]:
     def wrapper(c: type) -> type:
+        return c
+
+    return wrapper
+
+
+def TABLE_PRIVATE_COMPONENT() -> Callable[[type], type]:
+    def wrapper(c: type) -> type:
+        private_component_classes.append(c)
         return c
 
     return wrapper
