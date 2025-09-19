@@ -141,6 +141,9 @@ class Parser:
 
         class_def = module.body[0]
         assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
+
+        component_name = class_def.name
+
         assert len(class_def.decorator_list) >= 1, self._get_source_location(class_def)
         call = class_def.decorator_list[0]
         assert isinstance(call, ast.Call), self._get_source_location(call)
@@ -149,12 +152,7 @@ class Parser:
             attribute
         )
         assert attribute.attr == "TABLE_PIPELINE", self._get_source_location(attribute)
-        assert len(call.args) == 1, self._get_source_location(call)
-        constant = call.args[0]
-        assert isinstance(constant, ast.Constant), self._get_source_location(constant)
-        assert isinstance(constant.value, str), self._get_source_location(constant)
-
-        component_name = constant.value
+        assert len(call.args) == 0, self._get_source_location(call)
         description = ""
 
         if len(class_def.decorator_list) >= 2:
@@ -188,6 +186,9 @@ class Parser:
 
         class_def = module.body[0]
         assert isinstance(class_def, ast.ClassDef), self._get_source_location(class_def)
+
+        component_name = class_def.name
+
         assert len(class_def.decorator_list) >= 1, self._get_source_location(class_def)
         call = class_def.decorator_list[0]
         assert isinstance(call, ast.Call), self._get_source_location(call)
@@ -198,12 +199,7 @@ class Parser:
         assert attribute.attr == "TABLE_MATCH_TRANSFORM", self._get_source_location(
             attribute
         )
-        assert len(call.args) == 1, self._get_source_location(call)
-        constant = call.args[0]
-        assert isinstance(constant, ast.Constant), self._get_source_location(constant)
-        assert isinstance(constant.value, str), self._get_source_location(constant)
-
-        component_name = constant.value
+        assert len(call.args) == 0, self._get_source_location(call)
         description = ""
 
         if len(class_def.decorator_list) >= 2:
@@ -390,19 +386,16 @@ class Parser:
             attribute
         )
         assert attribute.attr == "Set", self._get_source_location(attribute)
-        assert len(call.args) == 2, self._get_source_location(call)
+        assert len(call.args) >= 1, self._get_source_location(call)
         constant = call.args[0]
         assert isinstance(constant, ast.Constant), self._get_source_location(constant)
         assert isinstance(constant.value, str), self._get_source_location(constant)
 
         business_scenario = constant.value
 
-        list1 = call.args[1]
-        assert isinstance(list1, ast.List), self._get_source_location(list1)
-
         key_and_expr_pairs: list[tuple[str, str]] = []
 
-        for tuple1 in list1.elts:
+        for tuple1 in call.args[1:]:
             assert isinstance(tuple1, ast.Tuple), self._get_source_location(tuple1)
             assert len(tuple1.elts) == 2, self._get_source_location(tuple1)
             constant = tuple1.elts[0]

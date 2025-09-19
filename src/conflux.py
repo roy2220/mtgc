@@ -4,7 +4,7 @@ pipeline_classes = []
 match_transform_classes = []
 
 
-def TABLE_PIPELINE(component_name: str) -> Callable[[type], type]:
+def TABLE_PIPELINE() -> Callable[[type], type]:
     def wrapper(c: type) -> type:
         pipeline_classes.append(c)
         return c
@@ -33,7 +33,7 @@ class Next:
         pass
 
 
-def TABLE_MATCH_TRANSFORM(component_name: str) -> Callable[[type], type]:
+def TABLE_MATCH_TRANSFORM() -> Callable[[type], type]:
     def wrapper(c: type) -> type:
         match_transform_classes.append(c)
         return c
@@ -61,7 +61,7 @@ class Set:
     def __init__(
         self,
         business_scenario: str,
-        key_and_expr_pairs: list[tuple[str, str]],
+        *key_and_expr_pairs: tuple[str, str],
     ) -> None:
         pass
 
